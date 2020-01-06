@@ -9,22 +9,22 @@ import clojure.lang.*;
  (def ^:static ^:const chunked-seq-class clojure.lang.IChunkedSeq)
 
  (defn ^:private ^:static xf-seq-step
-   [^clojure.lang.ISeq s ^clojure.lang.IFn xf ^clojure.lang.XFSeqDynamicBuffer2 buf]
-   (if (identical? s nil)
+   [^clojure.lang.ISeq _s ^clojure.lang.IFn xf ^clojure.lang.XFSeqDynamicBuffer2 buf]
+   (if (identical? _s nil)
      (do
        (xf (.scope buf))
        (.toSeq buf nil))
-     (let [s (if (.isInstance ^Class chunked-seq-class s)
-       (let [ch (chunk-first ^clojure.lang.IChunkedSeq s)]
+     (let [_s (if (.isInstance ^Class chunked-seq-class _s)
+       (let [ch (chunk-first ^clojure.lang.IChunkedSeq _s)]
          (if (identical? buf (.reduce ch xf (.scope buf (.count ch))))
-           (chunk-rest ^clojure.lang.IChunkedSeq s)
+           (chunk-rest ^clojure.lang.IChunkedSeq _s)
            ()))
-         (if (identical? buf (xf buf (.first s)))
-           (.more s)
+         (if (identical? buf (xf buf (.first _s)))
+           (._more _s)
            ()))]
        (.toSeq buf
          (lazy-seq
-           (xf-seq-step (.seq ^clojure.lang.ISeq s) xf buf))))))
+           (xf-seq-step (.seq ^clojure.lang.ISeq _s) xf buf))))))
 
  (def ^:static xf-seq-arr-conj!
    (fn
@@ -36,9 +36,9 @@ import clojure.lang.*;
  (def ^:static xf-seq
    (fn xf-seq [xform coll]
      (lazy-seq
-       (let [s (seq coll)]
-         (if s
-           (xf-seq-step s (xform xf-seq-arr-conj!) (clojure.lang.XFSeqDynamicBuffer2.)))))))
+       (let [_s (seq coll)]
+         (if _s
+           (xf-seq-step _s (xform xf-seq-arr-conj!) (clojure.lang.XFSeqDynamicBuffer2.)))))))
 
  */
 public class XFSeq {
@@ -56,7 +56,8 @@ public class XFSeq {
         public Object invoke() {
             Object s = RT.seq(coll);
             if (s != null) {
-                s = new XFSeqStep(xf, (ISeq)s).invoke();
+                // After the first call to .seq, we know if the seq is a LongSeq, DoubleSeq or just a Seq.
+                s = new AXFSeqStep.ObjectSeq(xf, (ISeq)s).invoke();
             }
             return s;
         }
