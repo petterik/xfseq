@@ -62,7 +62,7 @@ public abstract class XFSeqStep extends AFn {
 
         @Override
         boolean invokeXF(ISeq s) {
-            return buf != xf.invokePrim(buf, ((ILongSeq)s).firstLong());
+            return buf == xf.invokePrim(buf, ((ILongSeq)s).firstLong());
         }
 
         @Override
@@ -93,7 +93,7 @@ public abstract class XFSeqStep extends AFn {
 
         @Override
         boolean invokeXF(ISeq s) {
-            return buf != xf.invokePrim(buf, ((IDoubleSeq)s).firstDouble());
+            return buf == xf.invokePrim(buf, ((IDoubleSeq)s).firstDouble());
         }
 
         @Override
@@ -124,7 +124,7 @@ public abstract class XFSeqStep extends AFn {
 
         @Override
         boolean invokeXF(ISeq s) {
-            return buf != xf.invoke(buf, s.first());
+            return buf == xf.invoke(buf, s.first());
         }
 
         @Override
