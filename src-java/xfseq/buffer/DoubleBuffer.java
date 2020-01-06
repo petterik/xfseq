@@ -1,11 +1,12 @@
 package xfseq.buffer;
 
+import clojure.lang.AFn;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
 import xfseq.DoubleArrayCons;
 import xfseq.DoubleCons;
 
-public class DoubleBuffer implements IXFSeqBuffer, IFn.ODO {
+public class DoubleBuffer extends AFn implements IXFSeqBuffer, IFn.ODO {
 
     private double[] arr;
     private int idx;

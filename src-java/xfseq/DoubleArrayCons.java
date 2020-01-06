@@ -2,7 +2,7 @@ package xfseq;
 
 import clojure.lang.*;
 
-public class DoubleArrayCons extends AArrayCons implements IDoubleChunk {
+public class DoubleArrayCons extends AArrayCons implements IDoubleChunk, IDoubleSeq {
 
     private final double[] array;
 
@@ -58,6 +58,11 @@ public class DoubleArrayCons extends AArrayCons implements IDoubleChunk {
             }
         }
         return ret;
+    }
+
+    @Override
+    public double firstDouble() {
+        return array[_offset];
     }
 
     @Override

@@ -1,7 +1,9 @@
 package xfseq;
 
 import clojure.lang.*;
+import xfseq.buffer.DoubleBuffer;
 import xfseq.buffer.IXFSeqBuffer;
+import xfseq.buffer.LongBuffer;
 import xfseq.buffer.ObjectBuffer;
 
 /**
@@ -58,10 +60,31 @@ public class XFSeq {
         public Object invoke() {
             Object s = RT.seq(coll);
             if (s != null) {
-                // After the first call to .seq, we know if the seq is a LongSeq, DoubleSeq or just a Seq.
-                IXFSeqBuffer buf = new ObjectBuffer();
+                // TODO: Must know what the type is which is passed to the rf.
+                //       Before invoking with buf.
+                //       Can the transducers return the type of the object? (arity-0?)
+                Object typeHint = xf.invoke();
+
+                IXFSeqBuffer buf;
+                if (Long.class.equals(typeHint)) {
+                    buf = new LongBuffer();
+                } else if (Double.class.equals(typeHint)) {
+                    buf = new DoubleBuffer();
+                } else {
+                    buf = new ObjectBuffer();
+                }
                 IFn xform = (IFn)xf.invoke(buf);
-                s = new XFSeqStep.ObjectStep(xform, (ISeq)s, buf).invoke();
+
+                // After the first call to .seq, we know if the seq is a LongSeq, DoubleSeq or just a Seq.
+                XFSeqStep step;
+                if (s instanceof ILongSeq) {
+                    step = new XFSeqStep.LongStep(xform, (ISeq)s, buf);
+                } else if (s instanceof IDoubleSeq) {
+                    step = new XFSeqStep.DoubleStep(xform, (ISeq)s, buf);
+                } else {
+                    step = new XFSeqStep.ObjectStep(xform, (ISeq)s, buf);
+                }
+                s = step.invoke();
             }
             return s;
         }

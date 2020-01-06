@@ -1,10 +1,11 @@
 package xfseq.buffer;
 
+import clojure.lang.AFn;
 import clojure.lang.Cons;
 import clojure.lang.ISeq;
 import xfseq.ObjectArrayCons;
 
-public class ObjectBuffer implements IXFSeqBuffer {
+public class ObjectBuffer extends AFn implements IXFSeqBuffer {
 
     private static final Object[] NULLS = new Object[32];
 

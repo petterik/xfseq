@@ -1,11 +1,12 @@
 package xfseq.buffer;
 
+import clojure.lang.AFn;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
 import xfseq.LongArrayCons;
 import xfseq.LongCons;
 
-public class LongBuffer implements IXFSeqBuffer, IFn.OLO {
+public class LongBuffer extends AFn implements IXFSeqBuffer, IFn.OLO {
 
     private long[] arr;
     private int idx;
