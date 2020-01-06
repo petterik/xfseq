@@ -1,6 +1,8 @@
 package xfseq;
 
 import clojure.lang.*;
+import xfseq.buffer.IXFSeqBuffer;
+import xfseq.buffer.ObjectBuffer;
 
 /**
 
@@ -57,7 +59,9 @@ public class XFSeq {
             Object s = RT.seq(coll);
             if (s != null) {
                 // After the first call to .seq, we know if the seq is a LongSeq, DoubleSeq or just a Seq.
-                s = new AXFSeqStep.ObjectSeq(xf, (ISeq)s).invoke();
+                IXFSeqBuffer buf = new ObjectBuffer();
+                IFn xform = (IFn)xf.invoke(buf);
+                s = new XFSeqStep.ObjectStep(xform, (ISeq)s, buf).invoke();
             }
             return s;
         }
