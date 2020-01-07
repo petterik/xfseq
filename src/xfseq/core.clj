@@ -10,7 +10,7 @@
   [xf coll]
   (XFSeq/create xf coll))
 
-(defn- analyze-primitive-interface [x]
+(defn- analyze-primitive-interface [x-bases]
   (into {}
     (comp
       (clj.core/keep #(let [cn (.getCanonicalName ^Class %)]
@@ -32,7 +32,7 @@
       (clj.core/map (juxt :arity identity)))
     ;; TODO: Get the union from the set of all the possible classes instead of
     ;;       iterating through all the supers.
-    (supers (class x))))
+    x-bases))
 
 (comment
   (fn [^clojure.lang.IFn$LL f]
@@ -50,16 +50,14 @@
                         'Object "O"})
 
 (defn hint-map->interface [{:keys [return args] :as m}]
-  (doto
-    (if (every? #{'Object} (cons return args))
-      (symbol "clojure.lang.IFn")
-      (symbol
-        (format "clojure.lang.IFn$%s"
-          (apply str
-            (concat
-              (clj.core/map type-hint->letter args)
-              [(type-hint->letter return)])))))
-    (prn m)))
+  (if (every? #{'Object} (cons return args))
+    (symbol "clojure.lang.IFn")
+    (symbol
+      (format "clojure.lang.IFn$%s"
+        (apply str
+          (concat
+            (clj.core/map type-hint->letter args)
+            [(type-hint->letter return)]))))))
 
 (defn is-primitive? [interface-name]
   (not= "clojure.lang.IFn" (name interface-name)))
@@ -117,27 +115,23 @@
   (re-find #"\$O+$" "foo$OOO")
   )
 
-(defn map:analyze-types [f rf xf-body]
-  (let [ana-f (analyze-primitive-interface f)
-        ana-rf (analyze-primitive-interface rf)
-        replacements {'f  (get ana-f 1 {:arity  1
-                                        :args   '[Object]
-                                        :return 'Object})
-                      'rf (-> ana-rf
-                            (get 2 {:arity  2
-                                    :args   '[Object Object]
-                                    :return  'Object})
-                            (assoc-in [:args 1] (get-in ana-f [1 :return] 'Object)))}]
-    (apply-type-hints
-      ;; map's arity-2 arg1 should have the same type as the f's arg0.
-      (assoc-in ana-rf [2 :args 1] (get-in ana-f [1 :args 0]))
-      replacements
-      xf-body)))
-
-(defmacro map:with-types [xf-body]
-  `(let [body# ~xf-body]
-     (fn [f# rf#]
-       ((eval (map:analyze-types f# rf# body#)) f# rf#))))
+(defn map:type-analyzer [xf-body]
+  (fn [f-bases rf-bases]
+    (let [ana-f (analyze-primitive-interface f-bases)
+          ana-rf (analyze-primitive-interface rf-bases)
+          replacements {'f  (get ana-f 1 {:arity  1
+                                          :args   '[Object]
+                                          :return 'Object})
+                        'rf (-> ana-rf
+                              (get 2 {:arity  2
+                                      :args   '[Object Object]
+                                      :return 'Object})
+                              (assoc-in [:args 1] (get-in ana-f [1 :return] 'Object)))}]
+      (apply-type-hints
+        ;; map's arity-2 arg1 should have the same type as the f's arg0.
+        (assoc-in ana-rf [2 :args 1] (get-in ana-f [1 :args 0]))
+        replacements
+        xf-body))))
 
 (comment
   (analyze-primitive-interface (fn ^long [^long i] i))
@@ -146,7 +140,7 @@
              (^double [^double a] a)
              (^double
               [^double a ^long b] (Numbers/divide (Numbers/add a b) 2.0)))]
-    #_(map:analyze-types f rf
+    #_(map:type-analyzer f rf
       '(fn
          ([] (rf))
          ([acc] (rf acc))
@@ -245,20 +239,35 @@
   ([f coll]
    (xf-seq (map f) coll)))
 
+(def map:xf-analyzer
+  (map:type-analyzer
+    '(fn [f rf]
+       (fn
+         ([] (rf))
+         ([acc] (rf acc))
+         ([acc item]
+          (rf acc (f item)))))))
+
+(def map:eval-type-hinted-xf*
+  (memoize
+    (comp
+      eval
+      map:xf-analyzer)))
+
+(defn map:eval-type-hinted-xf [f rf]
+  (let [new-fn (map:eval-type-hinted-xf*
+                 (bases (class f))
+                 (bases (class rf)))]
+    (new-fn f rf)))
+
 (defn map
   ([f]
    (fn
      ([]
-      (get-in (analyze-primitive-interface f) [1 :return]))
+      (get-in (analyze-primitive-interface (bases (class f))) [1 :return]))
      ([rf]
       ;; TODO: Look at how scepter creates functions on the fly
-      ((eval (map:analyze-types f rf
-               '(fn [f rf]
-                  (fn
-                    ([] (rf))
-                    ([acc] (rf acc))
-                    ([acc item]
-                     (rf acc (f item))))))) f rf))))
+      (map:eval-type-hinted-xf f rf))))
   ([f coll]
    (xf-seq (map f) coll)))
 
@@ -266,8 +275,21 @@
 
   ;; Currently returns incorrectly:
   ;; (2 3 nil)
-  (map (fn ^long [^long i] (Numbers/add i 1)) [1 2])
+  ((eval (map:xf-analyzer (bases (class inc)) (bases (class conj)))) inc conj)
+  (xf-seq (map:eval-type-hinted-xf (fn ^long [^long i] (Numbers/add i (long 1))) conj) [1 2 3])
 
+  (map (fn ^long [^long i] (Numbers/add i (long 1))) [1 2])
+
+  (time (map:eval-type-hinted-xf*
+          (bases (class (fn [^long i] (Numbers/add i (long 1)))))
+          (bases (class conj))))
+
+  (time (dotimes [_ 1000] (map (fn ^long [^long i] (Numbers/add i (long 1))))))
+  (time (dotimes [_ 1000] (clj.core/map inc)))
+
+  (chunked-seq? (seq [1 2]))
+
+  (bases (class (fn ^long [^long i] (Numbers/add i (long 1)))))
   ;; But we're very close.
 
   )

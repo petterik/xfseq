@@ -25,7 +25,17 @@ public class LongCons extends ASeq implements ILongSeq {
 
     @Override
     public ISeq next() {
-        return _more;
+        return this.more().seq();
+    }
+
+    @Override
+    public ISeq more() {
+        return this._more == null ? PersistentList.EMPTY : this._more;
+    }
+
+    @Override
+    public int count() {
+        return 1 + RT.count(this._more);
     }
 
     @Override

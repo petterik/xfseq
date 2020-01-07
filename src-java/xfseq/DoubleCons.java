@@ -1,8 +1,6 @@
 package xfseq;
 
-import clojure.lang.ASeq;
-import clojure.lang.IPersistentMap;
-import clojure.lang.ISeq;
+import clojure.lang.*;
 
 public class DoubleCons extends ASeq implements IDoubleSeq {
 
@@ -27,7 +25,17 @@ public class DoubleCons extends ASeq implements IDoubleSeq {
 
     @Override
     public ISeq next() {
-        return _more;
+        return this.more().seq();
+    }
+
+    @Override
+    public ISeq more() {
+        return this._more == null ? PersistentList.EMPTY : this._more;
+    }
+
+    @Override
+    public int count() {
+        return 1 + RT.count(this._more);
     }
 
     @Override
