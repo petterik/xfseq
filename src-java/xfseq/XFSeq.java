@@ -47,6 +47,9 @@ import xfseq.buffer.ObjectBuffer;
  */
 public class XFSeq {
 
+    private static Symbol longHint = Symbol.intern(null, "long");
+    private static Symbol doubleHint = Symbol.intern(null, "double");
+
     private static class InitXFSeq extends AFn {
         private final IFn xf;
         private final Object coll;
@@ -66,9 +69,9 @@ public class XFSeq {
                 Object typeHint = xf.invoke();
 
                 IXFSeqBuffer buf;
-                if (Long.class.equals(typeHint)) {
+                if (longHint.equals(typeHint)) {
                     buf = new LongBuffer();
-                } else if (Double.class.equals(typeHint)) {
+                } else if (doubleHint.equals(typeHint)) {
                     buf = new DoubleBuffer();
                 } else {
                     buf = new ObjectBuffer();
@@ -84,6 +87,7 @@ public class XFSeq {
                 } else {
                     step = new XFSeqStep.ObjectStep(xform, (ISeq)s, buf);
                 }
+
                 s = step.invoke();
             }
             return s;
