@@ -6,10 +6,6 @@
   (:import [xfseq XFSeq]
            [clojure.lang Numbers]))
 
-(defn xf-seq
-  [xf coll]
-  (XFSeq/create xf coll))
-
 (defn- analyze-primitive-interface [x-bases]
   (into {}
     (comp
@@ -30,20 +26,7 @@
              :class  klass
              :args   (mapv letter->type-hint (butlast interface-name))})))
       (clj.core/map (juxt :arity identity)))
-    ;; TODO: Get the union from the set of all the possible classes instead of
-    ;;       iterating through all the supers.
     x-bases))
-
-(comment
-  (fn [^clojure.lang.IFn$LL f]
-    (let [^clojure.lang.IFn$LL f f]
-      (fn [rf]
-        (fn
-          ([] (rf))
-          ([acc] (rf acc))
-          ([acc ^long item]
-           (rf acc (f item)))))))
-  )
 
 (def type-hint->letter {'double "D"
                         'long   "L"
@@ -93,13 +76,6 @@
                                         (rest x)))
                                     x)
                                   x)))))))]
-    #_(->> xf-body
-      (clj.core/map
-        (fn [x]
-          (if (coll? x)
-            (apply-hints x)
-            x))))
-    ;; With wrap.
     (->> xf-body
       (clj.core/map
         (fn [inner]
@@ -111,9 +87,6 @@
                   x))
               inner)
             inner))))))
-(comment
-  (re-find #"\$O+$" "foo$OOO")
-  )
 
 (defn map:type-analyzer [xf-body]
   (fn [f-bases rf-bases]
@@ -132,112 +105,6 @@
         (assoc-in ana-rf [2 :args 1] (get-in ana-f [1 :args 0]))
         replacements
         xf-body))))
-
-(comment
-  (analyze-primitive-interface (fn ^long [^long i] i))
-  (let [f (fn ^long [^long i] i)
-        rf (fn
-             (^double [^double a] a)
-             (^double
-              [^double a ^long b] (Numbers/divide (Numbers/add a b) 2.0)))]
-    #_(map:type-analyzer f rf
-      '(fn
-         ([] (rf))
-         ([acc] (rf acc))
-         ([acc item]
-          (rf acc (f item)))))
-    (macroexpand-1 '(map:with-types f rf
-                      (fn
-                         ([] (rf))
-                         ([acc] (rf acc))
-                         ([acc item]
-                          (rf acc (f item)))))))
-  )
-
-#_(defn map
-  ([f]
-   (let [ret-type (cond
-                    (or
-                      (instance? IFn$LL f)
-                      (instance? IFn$OL f)
-                      (instance? IFn$DL f))
-                    Long
-                    (or
-                      (instance? IFn$DD f)
-                      (instance? IFn$OD f)
-                      (instance? IFn$LD f))
-                    Double)]
-     (fn
-       ([]
-        ret-type)
-       ([rf]
-        ;; TODO: Generate all of this type hinted code.
-        (or
-          (cond
-            (and
-              (= Long ret-type)
-              ;; TODO: Support the other primitive function interfaces
-              ;; (instance? IFn$LLO rf)
-              ;; (instance? IFn$OLL rf)
-              ;; (instance? IFn$LLL rf)
-              (instance? IFn$OLO rf))
-            (cond
-              (instance? IFn$LL f)
-              (fn
-                ([] (rf))
-                ([acc] (rf acc))
-                ([acc ^long item]
-                 (.invokePrim ^IFn$OLO rf acc (.invokePrim ^IFn$LL f item))))
-
-              (instance? IFn$OL f)
-              (fn
-                ([] (rf))
-                ([acc] (rf acc))
-                ([acc item]
-                 (.invokePrim ^IFn$OLO rf acc (.invokePrim ^IFn$OL f item))))
-
-              (instance? IFn$DL f)
-              (fn
-                ([] (rf))
-                ([acc] (rf acc))
-                ([acc ^double item]
-                 (.invokePrim ^IFn$OLO rf acc (.invokePrim ^IFn$DL f item)))))
-
-            (and
-              (= Double ret-type)
-              ;; TODO: Support the other primitive function interfaces
-              ;; (instance? IFn$DDO rf)
-              ;; (instance? IFn$ODD rf)
-              ;; (instance? IFn$DDD rf)
-              (instance? IFn$ODO rf))
-            (cond
-              (instance? IFn$DD f)
-              (fn
-                ([] (rf))
-                ([acc] (rf acc))
-                ([acc ^double item]
-                 (.invokePrim ^IFn$ODO rf acc (.invokePrim ^IFn$DD f item))))
-
-              (instance? IFn$OD f)
-              (fn
-                ([] (rf))
-                ([acc] (rf acc))
-                ([acc item]
-                 (.invokePrim ^IFn$ODO rf acc (.invokePrim ^IFn$OD f item))))
-
-              (instance? IFn$LD f)
-              (fn
-                ([] (rf))
-                ([acc] (rf acc))
-                ([acc ^long item]
-                 (.invokePrim ^IFn$ODO rf acc (.invokePrim ^IFn$LD f item))))))
-          (fn
-            ([] (rf))
-            ([acc] (rf acc))
-            ([acc item]
-             (rf acc (f item)))))))))
-  ([f coll]
-   (xf-seq (map f) coll)))
 
 (def map:xf-analyzer
   (map:type-analyzer
@@ -260,6 +127,10 @@
                  (bases (class rf)))]
     (new-fn f rf)))
 
+(defn xf-seq
+  [xf coll]
+  (XFSeq/create xf coll))
+
 (defn map
   ([f]
    (fn
@@ -275,21 +146,6 @@
 
   ;; Currently returns incorrectly:
   ;; (2 3 nil)
-  ((eval (map:xf-analyzer (bases (class inc)) (bases (class conj)))) inc conj)
-  (xf-seq (map:eval-type-hinted-xf (fn ^long [^long i] (Numbers/add i (long 1))) conj) [1 2 3])
-
-  (map (fn ^long [^long i] (Numbers/add i (long 1))) [1 2])
-
-  (time (map:eval-type-hinted-xf*
-          (bases (class (fn [^long i] (Numbers/add i (long 1)))))
-          (bases (class conj))))
-
-  (time (dotimes [_ 1000] (map (fn ^long [^long i] (Numbers/add i (long 1))))))
-  (time (dotimes [_ 1000] (clj.core/map inc)))
-
-  (chunked-seq? (seq [1 2]))
-
-  (bases (class (fn ^long [^long i] (Numbers/add i (long 1)))))
-  ;; But we're very close.
+  (map (fn ^long [^long i] (Numbers/add i (long 1))) (range (long 1e5)))
 
   )

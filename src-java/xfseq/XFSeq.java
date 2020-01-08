@@ -94,8 +94,47 @@ public class XFSeq {
         }
     }
 
-    public static ISeq create(IFn xform, Object coll) {
-        return new LazySeq(new InitXFSeq(xform, coll));
+    public static Object create(IFn xform, Object coll) {
+        return new XFSeqHead(xform, coll);
+    }
+
+    private static class XFSeqHead implements Seqable, Sequential, IReduceInit, IPending {
+
+        private IFn xform;
+        private Object coll;
+
+        public XFSeqHead(IFn xform, Object coll) {
+            this.xform = xform;
+            this.coll = coll;
+        }
+
+        @Override
+        public synchronized boolean isRealized() {
+            return xform == null;
+        }
+
+        @Override
+        public synchronized Object reduce(IFn iFn, Object o) {
+            IFn xf = (IFn)xform.invoke(iFn);
+            if (o instanceof XFSeqHead) {
+                return ((XFSeqHead)o).reduce(xf, o);
+            } else {
+                // Namespace.find("clojure.core").findInternedVar(Symbol.intern("reduce")).deref()
+                // TODO: Call clojure.core/reduce (?)
+                // TODO: OR hook in to coll-reduce?
+                return null;
+            }
+        }
+
+        @Override
+        public synchronized ISeq seq() {
+            if (xform != null) {
+                coll = new LazySeq(new InitXFSeq(xform, coll));
+                xform = null;
+            }
+
+            return ((ISeq)coll).seq();
+        }
     }
 
 }
