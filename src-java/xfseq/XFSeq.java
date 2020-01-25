@@ -6,6 +6,9 @@ import xfseq.buffer.IXFSeqBuffer;
 import xfseq.buffer.LongBuffer;
 import xfseq.buffer.ObjectBuffer;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
 
  Based on the Clojure code:
@@ -98,7 +101,9 @@ public class XFSeq {
         return new XFSeqHead(xform, coll);
     }
 
-    private static class XFSeqHead implements Seqable, Sequential, IReduceInit, IPending {
+    private static class XFSeqHead implements Seqable, Sequential, IPending {
+
+        private static Object DECONSTRUCTED = new Object();
 
         private IFn xform;
         private Object coll;
@@ -108,26 +113,42 @@ public class XFSeq {
             this.coll = coll;
         }
 
-        @Override
-        public synchronized boolean isRealized() {
-            return xform == null;
+        private void ensureValid(String msg) {
+            if (coll == DECONSTRUCTED) {
+                throw new RuntimeException(msg);
+            }
         }
 
-        @Override
-        public synchronized Object reduce(IFn iFn, Object o) {
-            IFn xf = (IFn)xform.invoke(iFn);
-            if (o instanceof XFSeqHead) {
-                return ((XFSeqHead)o).reduce(xf, o);
-            } else {
-                // Namespace.find("clojure.core").findInternedVar(Symbol.intern("reduce")).deref()
-                // TODO: Call clojure.core/reduce (?)
-                // TODO: OR hook in to coll-reduce?
+        /**
+         * Returns a tuple of [xform coll] and makes the XFSeq unusable.
+         *
+         * Returns null if seq has already been called, i.e. there's nothing
+         * to deconstruct anymore.
+         */
+        public synchronized List<Object> deconstruct() {
+            ensureValid("Unable to deconstruct XFSeq more than once");
+
+            if (xform == null) {
                 return null;
+            } else {
+                List<Object> l = Arrays.asList(xform, coll);
+                xform = null;
+                coll = DECONSTRUCTED;
+                return l;
             }
         }
 
         @Override
+        public synchronized boolean isRealized() {
+            ensureValid("XFSeq already deconstructed");
+
+            return xform == null;
+        }
+
+        @Override
         public synchronized ISeq seq() {
+            ensureValid("Unable to create a seq from a deconstructed XFSeq");
+
             if (xform != null) {
                 coll = new LazySeq(new InitXFSeq(xform, coll));
                 xform = null;
@@ -136,5 +157,4 @@ public class XFSeq {
             return ((ISeq)coll).seq();
         }
     }
-
 }
