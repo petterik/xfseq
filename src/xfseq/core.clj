@@ -3,7 +3,7 @@
   (:require
     [clojure.core :as clj.core]
     [clojure.walk :as walk])
-  (:import [xfseq XFSeq]
+  (:import [xfseq XFSeq XFSeq$XFSeqHead]
            [clojure.lang Numbers]))
 
 (defn- analyze-primitive-interface [x-bases]
@@ -129,6 +129,7 @@
 
 (defn xf-seq
   [xf coll]
+  ;; TODO: Write the create code in Clojure.
   (XFSeq/create xf coll))
 
 (defn map
@@ -141,6 +142,27 @@
       (map:eval-type-hinted-xf f rf))))
   ([f coll]
    (xf-seq (map f) coll)))
+
+;;;;;;;;
+;;
+;;
+
+(defn consume
+  "Consumes the XFSeq, deconstructing it to call reduce on the
+   original collection.
+
+   This allows for code to be written as:
+     (->> coll (map inc) ... (consume + 0))
+   that would be executed as:
+     (transduce (comp (map inc) ...) + 0 coll).
+
+   By only replacing reduce with consume at the end.
+
+   noun: consumable; a commodity that is intended to be used up relatively quickly."
+  [rf init coll]
+  (if-some [[xf coll] (and (instance? XFSeq$XFSeqHead coll) (.deconstruct ^XFSeq$XFSeqHead coll))]
+    (recur (xf rf) coll)
+    (reduce rf init coll)))
 
 (comment
 
