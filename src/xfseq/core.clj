@@ -26,14 +26,18 @@
 (extend-protocol ILongSeqable
   (class (long-array 0))
   (long-seq [arr]
-    (let [arr (longs arr)]
-      (LongArrayCons. 0 arr (.length arr) nil))))
+    (let [arr (longs arr)
+          len (count arr)]
+      (when (pos? len)
+        (LongArrayCons. arr 0 len nil)))))
 
 (extend-protocol IDoubleSeqable
   (class (double-array 0))
   (double-seq [arr]
-    (let [arr (doubles arr)]
-      (DoubleArrayCons. 0 arr (.length arr) nil))))
+    (let [arr (doubles arr)
+          len (count arr)]
+      (when (pos? len)
+       (DoubleArrayCons. arr 0 len nil)))))
 
 ;;;;;;;;;;;;;;;;;;;
 ;; XFSeq creation
@@ -44,13 +48,11 @@
 (deftype InitXFSeq [xf coll]
   clojure.lang.IFn
   (invoke [this]
-    (when-some [s (seq coll)]
-      (let [s   (condp satisfies? s
-                  ILongSeqable (long-seq s)
-                  IDoubleSeqable (double-seq s)
-                  s)
-
-            buf (case (::return-hint (meta xf))
+    (when-some [s (condp satisfies? coll
+                    ILongSeqable (long-seq coll)
+                    IDoubleSeqable (double-seq coll)
+                    (seq coll))]
+      (let [buf (case (::return-hint (meta xf))
                   long (LongBuffer.)
                   double (DoubleBuffer.)
                   ;; If there's no return hint, use a buffer
@@ -469,4 +471,13 @@
         remove clojure.core/remove]
     (time (dorun (take 1e6 (map long-add (remove long-even? (map long-add (range (long 1e6)))))))))
 
+  (let [map clj.core/map]
+    (let [arr (long-array (range (long 1e6)))]
+     (->> arr
+       (map long-add)
+       (map long-add)
+       (map long-add)
+       (map long-add)
+       (dorun)
+       (time))))
   )
