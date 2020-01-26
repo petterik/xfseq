@@ -1,7 +1,5 @@
 package xfseq;
 
-// TODO: Something went wrong when refactoring from InlineStep.
-
 import clojure.lang.*;
 import xfseq.buffer.IXFSeqBuffer;
 

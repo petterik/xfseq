@@ -50,7 +50,6 @@
       (ensure-valid coll "Unable to create a seq from a deconstructed XFSeq")
 
       (when (some? xf)
-        ;; TODO: write XFSeq$InitXFSeq in clojure
         (set! coll (clojure.lang.LazySeq. (InitXFSeq. xf coll)))
         (set! xf nil))
 
@@ -82,7 +81,6 @@
 
 (defn xf-seq
   [xf coll]
-  ;; TODO: Write the create code in Clojure.
   (XFSeqHead. xf coll))
 
 ;;;;;;;;;;;;;;;;;;;
