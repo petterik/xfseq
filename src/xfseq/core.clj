@@ -3,8 +3,73 @@
   (:require
     [clojure.core :as clj.core]
     [clojure.walk :as walk])
-  (:import [xfseq XFSeq XFSeq$XFSeqHead]
+  (:import [xfseq XFSeq XFSeq$XFSeqHead XFSeq$InitXFSeq]
            [clojure.lang Numbers]))
+
+(defprotocol IDeconstruct
+  (deconstruct [this]
+    "Safely returns its parts if they haven't been used
+     already, rendering the object unusable.
+
+     Returns nil if they're already been used.
+
+     This is really only meant to be used with xfseq.core/consume."))
+
+;;;;;;;;;;;;;;;;;;;
+;; XFSeq creation
+;;
+
+(defonce ^:private deconstructed (Object.))
+
+(declare ensure-valid)
+
+(deftype XFSeqHead [^:unsynchronized-mutable xf
+                    ^:unsynchronized-mutable coll]
+  clojure.lang.Sequential
+  clojure.lang.Seqable
+  (seq [this]
+    (locking this
+      (ensure-valid coll "Unable to create a seq from a deconstructed XFSeq")
+
+      (when (some? xf)
+        ;; TODO: write XFSeq$InitXFSeq in clojure
+        (set! coll (clojure.lang.LazySeq. (XFSeq$InitXFSeq. xf coll)))
+        (set! xf nil))
+
+      (seq coll)))
+
+  clojure.lang.IPending
+  (isRealized [this]
+    (locking this
+      (ensure-valid coll "XFSeqHead already deconstructed")
+      (nil? xf)))
+
+  IDeconstruct
+  (deconstruct [this]
+    (locking this
+      (ensure-valid coll "Unable to deconstruct XFSeq more than once")
+      (when (some? xf)
+        (let [ret [xf coll]]
+          (set! xf nil)
+          (set! coll deconstructed)
+          ret)))))
+
+(defn- ensure-valid [coll msg]
+  (when (= coll deconstructed)
+    (throw (ex-info msg {}))))
+
+(defmethod print-method XFSeqHead
+  [value writer]
+  (print-method (seq value) writer))
+
+(defn xf-seq
+  [xf coll]
+  ;; TODO: Write the create code in Clojure.
+  (XFSeqHead. xf coll))
+
+;;;;;;;;;;;;;;;;;;;
+;; Type analyzing
+;;
 
 (defn- analyze-primitive-interface [x-bases]
   (into {}
@@ -127,10 +192,9 @@
                  (bases (class rf)))]
     (new-fn f rf)))
 
-(defn xf-seq
-  [xf coll]
-  ;; TODO: Write the create code in Clojure.
-  (XFSeq/create xf coll))
+;;;;;;;;;;;;;;;;
+;; Transducers
+;;
 
 (defn map
   ([f]
@@ -143,8 +207,8 @@
   ([f coll]
    (xf-seq (map f) coll)))
 
-;;;;;;;;
-;;
+;;;;;;;;;;;;;;;;
+;; Consume API
 ;;
 
 (defn consume
@@ -161,7 +225,7 @@
    noun: consumable; a commodity that is intended to be used up relatively quickly."
   [rf init coll]
   (if-some [[xf coll] (and (instance? XFSeq$XFSeqHead coll) (.deconstruct ^XFSeq$XFSeqHead coll))]
-    (recur (xf rf) coll)
+    (recur (xf rf) init coll)
     (reduce rf init coll)))
 
 (comment
