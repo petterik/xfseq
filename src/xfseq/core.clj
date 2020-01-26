@@ -3,11 +3,12 @@
   (:require
     [clojure.core :as clj.core]
     [clojure.walk :as walk])
-  (:import [xfseq XFSeq XFSeq$XFSeqHead XFSeq$InitXFSeq]
-           [clojure.lang Numbers]))
+  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep]
+           [clojure.lang Numbers]
+           [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
 (defprotocol IDeconstruct
-  (deconstruct [this]
+  (deconstruct! [this]
     "Safely returns its parts if they haven't been used
      already, rendering the object unusable.
 
@@ -21,6 +22,23 @@
 
 (defonce ^:private deconstructed (Object.))
 
+(deftype InitXFSeq [xf coll]
+  clojure.lang.IFn
+  (invoke [this]
+    (when-some [s (seq coll)]
+      (let [buf (case (::return-hint (meta xf))
+                  long (LongBuffer.)
+                  double (DoubleBuffer.)
+                  (ObjectBuffer.))
+
+            rf (xf buf)
+
+            step (condp instance? s
+                   ILongSeq (XFSeqStep$LongStep. rf s buf)
+                   IDoubleSeq (XFSeqStep$DoubleStep. rf s buf)
+                   (XFSeqStep$ObjectStep. rf s buf))]
+        (step)))))
+
 (declare ensure-valid)
 
 (deftype XFSeqHead [^:unsynchronized-mutable xf
@@ -33,7 +51,7 @@
 
       (when (some? xf)
         ;; TODO: write XFSeq$InitXFSeq in clojure
-        (set! coll (clojure.lang.LazySeq. (XFSeq$InitXFSeq. xf coll)))
+        (set! coll (clojure.lang.LazySeq. (InitXFSeq. xf coll)))
         (set! xf nil))
 
       (seq coll)))
@@ -45,7 +63,7 @@
       (nil? xf)))
 
   IDeconstruct
-  (deconstruct [this]
+  (deconstruct! [this]
     (locking this
       (ensure-valid coll "Unable to deconstruct XFSeq more than once")
       (when (some? xf)
@@ -198,9 +216,8 @@
 
 (defn map
   ([f]
+   ^{::return-hint (get-in (analyze-primitive-interface (bases (class f))) [1 :return])}
    (fn
-     ([]
-      (get-in (analyze-primitive-interface (bases (class f))) [1 :return]))
      ([rf]
       ;; TODO: Look at how scepter creates functions on the fly
       (map:eval-type-hinted-xf f rf))))
@@ -224,8 +241,11 @@
 
    noun: consumable; a commodity that is intended to be used up relatively quickly."
   [rf init coll]
-  (if-some [[xf coll] (and (instance? XFSeq$XFSeqHead coll) (.deconstruct ^XFSeq$XFSeqHead coll))]
+  (if-some [[xf coll] (when (satisfies? IDeconstruct coll) (deconstruct! coll))]
     (recur (xf rf) init coll)
+    ;; TODO: Needs primitive reduce?
+    ;;       I.e. calling the reducing function with the .invokePrim
+    ;;       methods and not invoke, as it'll box the numbers.
     (reduce rf init coll)))
 
 (comment
@@ -234,4 +254,31 @@
   ;; (2 3 nil)
   (map (fn ^long [^long i] (Numbers/add i (long 1))) (range (long 1e5)))
 
+  (def long-add (fn ^long [^long l] (clojure.lang.Numbers/add l 1)))
+
+  (->> (repeat (long 1e5) 1)
+    (map long-add)
+    (map long-add)
+    (map long-add)
+    (map long-add)
+    (map long-add)
+    (consume (fn ^long [^long acc ^long i]
+               (clojure.lang.Numbers/add acc i))
+      0)
+    (time))
+
+  (let [map clojure.core/map]
+    (->> (repeat (long 1e5) 1)
+      (transduce
+        (comp
+          (map long-add)
+          (map long-add)
+          (map long-add)
+          (map long-add)
+          (map long-add))
+        (completing
+          (fn ^long [^long acc ^long i]
+           (clojure.lang.Numbers/add acc i)))
+        0)
+      (time)))
   )
