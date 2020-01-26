@@ -8,6 +8,8 @@
            [clojure.lang Numbers]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
+(set! *warn-on-reflection* true)
+
 (defprotocol IDeconstruct
   (deconstruct! [this]
     "Safely returns its parts if they haven't been used
@@ -23,13 +25,27 @@
 (defprotocol IDoubleSeqable
   (double-seq [this]))
 
+(defn long-chunk [^longs arr ^long off ^long len]
+  (let [chunk-length (min len (+ off 32))]
+    (LongArrayCons. arr off chunk-length
+      (when (< chunk-length len)
+        (lazy-seq
+          (long-chunk arr chunk-length len))))))
+
 (extend-protocol ILongSeqable
   (class (long-array 0))
   (long-seq [arr]
     (let [arr (longs arr)
           len (count arr)]
       (when (pos? len)
-        (LongArrayCons. arr 0 len nil)))))
+        (long-chunk arr 0 len)))))
+
+(defn double-chunk [^doubles arr ^long off ^long len]
+  (let [chunk-length (min len (+ off 32))]
+    (DoubleArrayCons. arr off chunk-length
+      (when (< chunk-length len)
+        (lazy-seq
+          (double-chunk arr chunk-length len))))))
 
 (extend-protocol IDoubleSeqable
   (class (double-array 0))
@@ -37,7 +53,7 @@
     (let [arr (doubles arr)
           len (count arr)]
       (when (pos? len)
-       (DoubleArrayCons. arr 0 len nil)))))
+        (double-chunk arr 0 len)))))
 
 ;;;;;;;;;;;;;;;;;;;
 ;; XFSeq creation
@@ -480,4 +496,6 @@
        (map long-add)
        (dorun)
        (time))))
+
+  (reduce + 0 (into [] (long-seq (long-array (repeat 100 1)))))
   )
