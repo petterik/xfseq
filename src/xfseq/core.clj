@@ -4,7 +4,7 @@
     [clojure.core :as clj.core]
     [clojure.set :as set]
     [clojure.walk :as walk])
-  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep]
+  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep LongArrayCons DoubleArrayCons]
            [clojure.lang Numbers]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
@@ -17,6 +17,24 @@
 
      This is really only meant to be used with xfseq.core/consume."))
 
+(defprotocol ILongSeqable
+  (long-seq [this]))
+
+(defprotocol IDoubleSeqable
+  (double-seq [this]))
+
+(extend-protocol ILongSeqable
+  (class (long-array 0))
+  (long-seq [arr]
+    (let [arr (longs arr)]
+      (LongArrayCons. 0 arr (.length arr) nil))))
+
+(extend-protocol IDoubleSeqable
+  (class (double-array 0))
+  (double-seq [arr]
+    (let [arr (doubles arr)]
+      (DoubleArrayCons. 0 arr (.length arr) nil))))
+
 ;;;;;;;;;;;;;;;;;;;
 ;; XFSeq creation
 ;;
@@ -27,7 +45,12 @@
   clojure.lang.IFn
   (invoke [this]
     (when-some [s (seq coll)]
-      (let [buf (case (::return-hint (meta xf))
+      (let [s   (condp satisfies? s
+                  ILongSeqable (long-seq s)
+                  IDoubleSeqable (double-seq s)
+                  s)
+
+            buf (case (::return-hint (meta xf))
                   long (LongBuffer.)
                   double (DoubleBuffer.)
                   ;; If there's no return hint, use a buffer
