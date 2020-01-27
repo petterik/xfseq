@@ -4,7 +4,7 @@
     [clojure.core :as clj.core]
     [clojure.set :as set]
     [clojure.walk :as walk])
-  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep LongArrayCons DoubleArrayCons]
+  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk]
            [clojure.lang Numbers]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
@@ -27,7 +27,7 @@
 
 (defn long-chunk [^longs arr ^long off ^long len]
   (let [chunk-length (min len (+ off 32))]
-    (LongArrayCons. arr off chunk-length
+    (LongChunkedCons. (LongArrayChunk. arr off chunk-length)
       (when (< chunk-length len)
         (lazy-seq
           (long-chunk arr chunk-length len))))))
@@ -42,7 +42,7 @@
 
 (defn double-chunk [^doubles arr ^long off ^long len]
   (let [chunk-length (min len (+ off 32))]
-    (DoubleArrayCons. arr off chunk-length
+    (DoubleChunkedCons. (DoubleArrayChunk. arr off chunk-length)
       (when (< chunk-length len)
         (lazy-seq
           (double-chunk arr chunk-length len))))))
@@ -497,5 +497,13 @@
        (dorun)
        (time))))
 
-  (reduce + 0 (into [] (long-seq (long-array (repeat 100 1)))))
+  (reduce + 0 (map inc (range 10)))
+  (let [map clj.core/map]
+    (let [arr (long-array (repeat (long 1e6) 1))]
+     (System/gc)
+     (time (dorun (map long-add arr)))))
+
+
+  ;; Fails:
+  (map inc (long-seq (long-array (repeat 100 1))))
   )

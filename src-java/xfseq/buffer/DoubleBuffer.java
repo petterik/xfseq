@@ -3,7 +3,8 @@ package xfseq.buffer;
 import clojure.lang.AFn;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
-import xfseq.DoubleArrayCons;
+import xfseq.DoubleArrayChunk;
+import xfseq.DoubleChunkedCons;
 import xfseq.DoubleCons;
 
 public class DoubleBuffer extends AFn implements IXFSeqBuffer, IFn.ODO {
@@ -18,7 +19,7 @@ public class DoubleBuffer extends AFn implements IXFSeqBuffer, IFn.ODO {
 
     @Override
     public ISeq toTail() {
-        return new DoubleArrayCons(arr, 0, idx, null);
+        return new DoubleChunkedCons(new DoubleArrayChunk(arr, 0, idx), null);
     }
 
     @Override
@@ -96,7 +97,7 @@ public class DoubleBuffer extends AFn implements IXFSeqBuffer, IFn.ODO {
             case 30:
             case 31:
             case 32:
-                seq = new DoubleArrayCons(arr, 0, idx, seq);
+                seq = new DoubleChunkedCons(new DoubleArrayChunk(arr, 0, idx), seq);
                 arr = new double[capacity];
                 idx = 0;
                 break;
@@ -119,7 +120,7 @@ public class DoubleBuffer extends AFn implements IXFSeqBuffer, IFn.ODO {
         do {
             int end = offset;
             offset = Math.max(0, offset - 32);
-            s = new DoubleArrayCons(arr, offset, end, s);
+            s = new DoubleChunkedCons(new DoubleArrayChunk(arr, offset, end), s);
         } while (offset > 0);
 
         return s;

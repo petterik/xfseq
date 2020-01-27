@@ -3,7 +3,8 @@ package xfseq.buffer;
 import clojure.lang.AFn;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
-import xfseq.LongArrayCons;
+import xfseq.LongArrayChunk;
+import xfseq.LongChunkedCons;
 import xfseq.LongCons;
 
 public class LongBuffer extends AFn implements IXFSeqBuffer, IFn.OLO {
@@ -18,7 +19,7 @@ public class LongBuffer extends AFn implements IXFSeqBuffer, IFn.OLO {
 
     @Override
     public ISeq toTail() {
-        return new LongArrayCons(arr, 0, idx, null);
+        return new LongChunkedCons(new LongArrayChunk(arr, 0, idx), null);
     }
 
     @Override
@@ -96,7 +97,7 @@ public class LongBuffer extends AFn implements IXFSeqBuffer, IFn.OLO {
             case 30:
             case 31:
             case 32:
-                seq = new LongArrayCons(arr, 0, idx, seq);
+                seq = new LongChunkedCons(new LongArrayChunk(arr, 0, idx), seq);
                 arr = new long[capacity];
                 idx = 0;
                 break;
@@ -119,7 +120,7 @@ public class LongBuffer extends AFn implements IXFSeqBuffer, IFn.OLO {
         do {
             int end = offset;
             offset = Math.max(0, offset - 32);
-            s = new LongArrayCons(arr, offset, end, s);
+            s = new LongChunkedCons(new LongArrayChunk(arr, offset, end), s);
         } while (offset > 0);
 
         return s;

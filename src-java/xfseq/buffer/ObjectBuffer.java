@@ -1,9 +1,6 @@
 package xfseq.buffer;
 
-import clojure.lang.AFn;
-import clojure.lang.Cons;
-import clojure.lang.ISeq;
-import xfseq.ObjectArrayCons;
+import clojure.lang.*;
 
 public class ObjectBuffer extends AFn implements IXFSeqBuffer {
 
@@ -36,7 +33,7 @@ public class ObjectBuffer extends AFn implements IXFSeqBuffer {
 
     @Override
     public ISeq toTail() {
-        return new ObjectArrayCons(arr, 0, idx, null);
+        return new ChunkedCons(new ArrayChunk(arr, 0, idx), null);
     }
 
     @Override
@@ -97,7 +94,7 @@ public class ObjectBuffer extends AFn implements IXFSeqBuffer {
             case 30:
             case 31:
             case 32:
-                seq = new ObjectArrayCons(arr, 0, idx, seq);
+                seq = new ChunkedCons(new ArrayChunk(arr, 0, idx), seq);
                 arr = new Object[capacity];
                 idx = 0;
                 break;
@@ -120,7 +117,7 @@ public class ObjectBuffer extends AFn implements IXFSeqBuffer {
         do {
             int end = offset;
             offset = Math.max(0, offset - 32);
-            s = new ObjectArrayCons(arr, offset, end, s);
+            s = new ChunkedCons(new ArrayChunk(arr, offset, end), s);
         } while (offset > 0);
 
         return s;
