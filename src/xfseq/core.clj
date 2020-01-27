@@ -71,6 +71,7 @@
       (let [buf (case (::return-hint (meta xf))
                   long (LongBuffer.)
                   double (DoubleBuffer.)
+                  Object (ObjectBuffer.)
                   ;; If there's no return hint, use a buffer
                   ;; of the same type as the incoming seq.
                   (condp instance? s
@@ -334,7 +335,7 @@
    ^{::return-hint (-> (class f)
                      (interfaces)
                      (analyze-primitive-interfaces)
-                     (get-in [1 :return]))}
+                     (get-in [1 :return] 'Object))}
    (fn
      [rf]
      (map:xf-factory rf f)))
@@ -505,5 +506,11 @@
 
 
   ;; Fails:
+  ;; Would need to enumerate all combinations of LongStep<X>,
+  ;; where X = double, long, Object. Should maybe consider code-gen.
   (map inc (long-seq (long-array (repeat 100 1))))
+
+  ;; TODO: Implement more transducers
+  ;;       Implement primitive reduce
+  ;;       Generate some of the Java code (Look at XFSeqStep$<x>Step).
   )
