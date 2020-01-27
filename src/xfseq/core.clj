@@ -2,9 +2,10 @@
   (:refer-clojure :exclude [map filter remove take])
   (:require
     [clojure.core :as clj.core]
+    [clojure.core.protocols :as core.protocols]
     [clojure.set :as set]
     [clojure.walk :as walk])
-  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk]
+  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk ILongChunk LongCons]
            [clojure.lang Numbers]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
@@ -428,6 +429,38 @@
     ;;       methods and not invoke, as it'll box the numbers.
     (reduce rf init coll)))
 
+;; TODO: Make this InternalReduce via ILongSeq
+;;       It doesn't work right now because InternalReduce
+;;       is used with the IChunkedSeq implementation.
+;;       Remove IChunkedSeq from the chunked cons'es?
+;;       Or something else?
+(extend-protocol core.protocols/CollReduce
+  LongChunkedCons
+  (coll-reduce [s rf val]
+    (let [ana-rf (analyze-primitive-interfaces (interfaces (class rf)))]
+      ;; TODO: Replace the (rf val (...)) calls with invocations to
+      ;;       primitive type interfaces.
+      ;; TODO: TypeHint val at the top of the created function.
+      (if (chunked-seq? s)
+        (let [^ILongChunk ch (chunk-first s)
+              length (.count ch)]
+          (loop [i 0 val val]
+            (if (clojure.lang.Numbers/lt i length)
+              (let [ret (rf val (.nthLong ch i))]
+                (if (reduced? ret)
+                  @ret
+                  (recur (clojure.lang.Numbers/unchecked_inc i) ret)))
+              (core.protocols/internal-reduce (chunk-next s) rf val))))
+        (let [cls (class s)]
+          (loop [s s val val]
+            (let [ret (rf val (.firstLong s))]
+              (if (reduced? ret)
+                @ret
+                (let [n (next s)]
+                  (if (= cls (class n))
+                    (recur n ret)
+                    (core.protocols/internal-reduce n rf val)))))))))))
+
 ;;;;;;;;;;
 ;; Utils
 ;;
@@ -513,4 +546,13 @@
   ;; TODO: Implement more transducers
   ;;       Implement primitive reduce
   ;;       Generate some of the Java code (Look at XFSeqStep$<x>Step).
+
+  (let [map clj.core/map]
+    (let [arr (long-array (repeat (long 1e6) 1))]
+      (time (reduce + 0 (map long-add arr)))))
+  ;; clojure.core/map: "Elapsed time: 111.124331 msecs"
+  ;; xfseq.core/map:   "Elapsed time: 12.930992 msecs"
+
+  ;; Note: This can get even faster with primitive invocations
+  ;; of the reducing function.
   )
