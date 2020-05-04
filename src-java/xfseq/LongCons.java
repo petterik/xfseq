@@ -2,40 +2,24 @@ package xfseq;
 
 import clojure.lang.*;
 
-public class LongCons extends ASeq implements ILongSeq {
+public class LongCons extends ACons implements ILongSeq {
 
     private final long _first;
-    private final ISeq _more;
 
-    public LongCons(long first, ISeq _more) {
+    public LongCons(long first, ISeq more) {
+        super(more);
         this._first = first;
-        this._more = _more;
+
     }
 
-    public LongCons(IPersistentMap meta, long _first, ISeq _more) {
-        super(meta);
-        this._first = _first;
-        this._more = _more;
+    public LongCons(IPersistentMap meta, long first, ISeq more) {
+        super(meta, more);
+        this._first = first;
     }
 
     @Override
     public Object first() {
         return _first;
-    }
-
-    @Override
-    public ISeq next() {
-        return this.more().seq();
-    }
-
-    @Override
-    public ISeq more() {
-        return this._more == null ? PersistentList.EMPTY : this._more;
-    }
-
-    @Override
-    public int count() {
-        return 1 + RT.count(this._more);
     }
 
     @Override
