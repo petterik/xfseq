@@ -425,7 +425,12 @@
   (if-some [[xf coll] (when (satisfies? IDeconstruct coll) (deconstruct! coll))]
     (recur (xf rf) init coll)
     ;; TODO: Needs primitive reduce?
-    (reduce rf init coll)))
+    (let [ana (analyze-primitive-interfaces (interfaces (class rf)))
+          ret (reduce rf init coll)]
+      ;; Call 1 arity if available.
+      (cond-> ret
+        (some? (get ana 1))
+        (rf)))))
 
 (defn drain
   "Returns a draining version of the collection which skips intermediate structures
@@ -562,7 +567,7 @@
 
   (let [map clj.core/map]
     (let [arr (long-array (repeat (long 1e6) 1))]
-      (time (consume long-add 0 (map long-inc arr)))))
+      (time (reduce long-add 0 (map long-inc arr)))))
   ;; clojure.core/map: "Elapsed time: 111.124331 msecs"
   ;; xfseq.core/map:   "Elapsed time: 12.930992 msecs"
 
