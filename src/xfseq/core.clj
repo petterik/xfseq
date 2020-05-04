@@ -62,6 +62,71 @@
 
 (defonce ^:private deconstructed (Object.))
 
+;; TODO: Can we generate classes with:
+;;       * type hinted arguments
+;;       * Generated names, like XFSeqStep_LLOL
+;; TODO: Can we get the generated class if it already exists?
+;;       - No, let's just generate them all and assume they exist.
+;;       - It'll be 3^4 = 81 classes (3 values, 4 inputs)
+;;       - We may want to be smarter if we want to add chunked-or-not seqs.
+;;         to skip the chunked check, which makes 4^4 = 256 classes.
+;;         - I.e. generate on the fly.
+;;       - Hmm, do they really need to be deftypes?
+;;       - They really just need to be invokable?
+;;         - Yes. They need to be deftypes to get the mutable hinted fields.
+
+(defmacro gen-deftype [name args]
+  `(deftype ~name ~args))
+
+(comment
+  (gen-deftype GenTest [^:unsynchronized-mutable ^long a])
+  )
+
+(def buffer-map {'Object xfseq.buffer.ObjectBuffer
+                 'long   xfseq.buffer.LongBuffer
+                 'double xfseq.buffer.DoubleBuffer})
+
+(defn gen-xfseq-name [{:keys [arities input-type return-hint]}]
+  (let [hint->letter (fn [hint]
+                       (Character/toUpperCase (.charAt (str hint) 0)))]
+    (->> (clj.core/map #(get arities %) [1 2])
+      (mapcat (fn [{:keys [return args]}]
+                (cons return args)))
+      (concat [input-type (or return-hint 'Object)])
+      (clj.core/map hint->letter)
+      (apply str "XFSeqStep_"))))
+
+(defn gen-xfseq-step
+  "Generates a class and returns a constructor function."
+  [{:keys [arities input-type return-hint] :as args}]
+  (let [type-name (gen-xfseq-name args)
+        rf-arg-type (-> (get arities 2)
+                      (:args)
+                      (nth 1))
+
+        buf-type (or
+                   return-hint
+                   (when (= rf-arg-type input-type) input-type)
+                   'Object)
+        buf-class (get buffer-map buf-type)
+        new-buf (fn []
+                  (.newInstance ^Class buf-class))
+
+        args [(with-meta (symbol "buf") {:tag     buf-class
+                                         :private true})
+              (with-meta (symbol "s") {:tag                    clojure.lang.ISeq
+                                       :unsynchronized-mutable true})]
+        invoke-body `((do))]
+    `(deftype ~type-name ~args
+       ~'cloure.lang.IFn
+       (~'invoke [~'this]
+         ~@invoke-body))
+
+    (let [ctor (resolve (symbol (str '-> type-name)))]
+      (fn [coll]
+        (ctor (new-buf) coll)))))
+
+
 (deftype InitXFSeq [xf coll]
   clojure.lang.IFn
   (invoke [this]
@@ -570,6 +635,9 @@
       (time (reduce long-add 0 (map long-inc arr)))))
   ;; clojure.core/map: "Elapsed time: 111.124331 msecs"
   ;; xfseq.core/map:   "Elapsed time: 12.930992 msecs"
+
+  (let [arr (seq (into #{} (range 0 10)))]
+    (time (reduce long-add 0 (map long-inc arr))))
 
   ;; Note: This can get even faster with primitive invocations
   ;; of the reducing function.
