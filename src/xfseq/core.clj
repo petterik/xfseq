@@ -425,47 +425,40 @@
   (if-some [[xf coll] (when (satisfies? IDeconstruct coll) (deconstruct! coll))]
     (recur (xf rf) init coll)
     ;; TODO: Needs primitive reduce?
-    ;;       I.e. calling the reducing function with the .invokePrim
-    ;;       methods and not invoke, as it'll box the numbers.
     (reduce rf init coll)))
 
-;; TODO: Make this InternalReduce via ILongSeq
-;;       It doesn't work right now because InternalReduce
-;;       is used with the IChunkedSeq implementation.
-;;       Remove IChunkedSeq from the chunked cons'es?
-;;       Or something else?
-(extend-protocol core.protocols/CollReduce
-  LongChunkedCons
-  (coll-reduce [s rf val]
-    (let [ana-rf (analyze-primitive-interfaces (interfaces (class rf)))]
-      ;; TODO: Replace the (rf val (...)) calls with invocations to
-      ;;       primitive type interfaces.
-      ;; TODO: TypeHint val at the top of the created function.
-      (if (chunked-seq? s)
-        (let [^ILongChunk ch (chunk-first s)
-              length (.count ch)]
-          (loop [i 0 val val]
-            (if (clojure.lang.Numbers/lt i length)
-              (let [ret (rf val (.nthLong ch i))]
-                (if (reduced? ret)
-                  @ret
-                  (recur (clojure.lang.Numbers/unchecked_inc i) ret)))
-              (core.protocols/internal-reduce (chunk-next s) rf val))))
-        (let [cls (class s)]
-          (loop [s s val val]
-            (let [ret (rf val (.firstLong s))]
-              (if (reduced? ret)
-                @ret
-                (let [n (next s)]
-                  (if (= cls (class n))
-                    (recur n ret)
-                    (core.protocols/internal-reduce n rf val)))))))))))
+(defn drain
+  "Returns a draining version of the collection which skips intermediate structures
+   when possible, rendering those intermediates unusable.
+
+   This allows for code like:
+    (let [a (map inc coll)]
+      (drained (map dec a)))
+   To never construct intermediate a. It also makes code using a after having
+   iterated through the drained throw an exception:
+     (let [a (map inc coll)]
+       (count (drained (map dec a)))
+       (prn a) ;; throws
+     )
+
+   However, using `a` before it's drained is valid but will not yield the
+   performance improvements as it'll not be deconstructable."
+  [coll]
+  (loop [rf nil coll coll]
+    (if-some [[xf coll] (when (satisfies? IDeconstruct coll) (deconstruct! coll))]
+      (recur (if (some? rf) (xf rf) xf) coll)
+      (if (some? rf)
+        (xf-seq rf coll)
+        coll))))
+
 
 ;;;;;;;;;;
 ;; Utils
 ;;
 
-(def long-add (fn ^long [^long l] (clojure.lang.Numbers/add l 1)))
+(def long-add (fn ^long [^long a ^long b] (clojure.lang.Numbers/add a b)))
+
+(def long-inc (fn ^long [^long l] (clojure.lang.Numbers/add l 1)))
 
 (def long-even? (fn [^long l] (zero? (clojure.lang.Numbers/and l 1))))
 
@@ -478,13 +471,13 @@
 
   (time (map inc [1 2 3]))
   (time (clj.core/map inc [1 2 3]))
-  (time (bases (class long-add)))
-  (time (interfaces (class long-add)))
-  (let [x (interfaces (class long-add))]
+  (time (bases (class long-inc)))
+  (time (interfaces (class long-inc)))
+  (let [x (interfaces (class long-inc))]
     (time (analyze-primitive-interfaces x)))
 
   (->> (repeat (long 1e5) 1)
-    (map long-add)
+    (map long-inc)
     (filter long-even?)
     (dorun)
     (time))
@@ -493,11 +486,11 @@
     (->> (repeat (long 1e5) 1)
       (transduce
         (comp
-          (map long-add)
-          (map long-add)
-          (map long-add)
-          (map long-add)
-          (map long-add))
+          (map long-inc)
+          (map long-inc)
+          (map long-inc)
+          (map long-inc)
+          (map long-inc))
         (completing
           (fn ^long [^long acc ^long i]
            (clojure.lang.Numbers/add acc i)))
@@ -515,27 +508,43 @@
       (dorun)
      (time)))
 
-  (time (dorun (take 1e6 (map long-add (remove long-even? (map long-add (range (long 1e6))))))))
+  (time (dorun (take 1e6 (map long-inc (remove long-even? (map long-inc (range (long 1e6))))))))
   (let [take clojure.core/take
         map clojure.core/map
         remove clojure.core/remove]
-    (time (dorun (take 1e6 (map long-add (remove long-even? (map long-add (range (long 1e6)))))))))
+    (time (dorun (take 1e6 (map long-inc (remove long-even? (map long-inc (range (long 1e6)))))))))
 
   (let [map clj.core/map]
     (let [arr (long-array (range (long 1e6)))]
      (->> arr
-       (map long-add)
-       (map long-add)
-       (map long-add)
-       (map long-add)
+       (map long-inc)
+       (map long-inc)
+       (map long-inc)
+       (map long-inc)
        (dorun)
        (time))))
+
+  (let [map clj.core/map]
+    (let [arr (long-array (range (long 1e6)))]
+      (->> arr
+        (map long-inc)
+        (map long-inc)
+        (map long-inc)
+        (map long-inc)
+        (drain)
+        (dorun)
+        (time))))
+
+  (let [a (map inc (range 10))]
+    (prn a)
+    (doall (drain (map inc a)))
+    )
 
   (reduce + 0 (map inc (range 10)))
   (let [map clj.core/map]
     (let [arr (long-array (repeat (long 1e6) 1))]
-     (System/gc)
-     (time (dorun (map long-add arr)))))
+      (System/gc)
+      (time (dorun (map long-inc arr)))))
 
 
   ;; Fails:
@@ -543,13 +552,17 @@
   ;; where X = double, long, Object. Should maybe consider code-gen.
   (map inc (long-seq (long-array (repeat 100 1))))
 
+  ;; Fails:
+  ;; "count not supported on this type: XFSeqHead"
+  (count (map inc [1 2 3]))
+
   ;; TODO: Implement more transducers
   ;;       Implement primitive reduce
   ;;       Generate some of the Java code (Look at XFSeqStep$<x>Step).
 
   (let [map clj.core/map]
     (let [arr (long-array (repeat (long 1e6) 1))]
-      (time (reduce + 0 (map long-add arr)))))
+      (time (consume long-add 0 (map long-inc arr)))))
   ;; clojure.core/map: "Elapsed time: 111.124331 msecs"
   ;; xfseq.core/map:   "Elapsed time: 12.930992 msecs"
 
