@@ -331,34 +331,34 @@
                                        'double 'clojure.lang.RT/doubleCast)))]))
 
 
-        invoke-body `(or
-                       (loop [~'c (seq ~'s)]
-                         (when-not (clojure.lang.Util/identical ~'c nil)
-                           (let [~'c (if (chunked-seq? ~'c)
-                                       (let [~(with-meta (symbol "c") {:tag (class->sym clojure.lang.IChunkedSeq)}) ~'c
-                                             ~(with-meta (symbol "chunk") {:tag (class->sym chunk-type)}) (.chunkedFirst ~'c)
-                                             ~'n (.count ~'chunk)]
-                                         (loop [~'i 0]
-                                           (if (clojure.lang.Numbers/lt ~'i ~'n)
-                                             (if (clojure.lang.Util/identical ~'buf ~xf-invoke-chunk)
-                                               (recur (clojure.lang.Numbers/unchecked_inc ~'i))
-                                               ;; reduced
-                                               clojure.lang.PersistentList/EMPTY)
-                                             (.chunkedMore ~'c))))
-                                       (let [~(with-meta (symbol "c") {:tag (class->sym seq-class)}) ~'c]
-                                         (if (clojure.lang.Util/identical ~'buf ~xf-invoke-first)
-                                           (.more ~'c)
-                                           clojure.lang.PersistentList/EMPTY)))]
-                             (if (.isEmpty ~'buf)
-                               (recur (seq ~'c))
-                               (do
-                                 (set! (. ~'this ~'-s) ~'c)
-                                 (.toSeq ~'buf (clojure.lang.LazySeq. ~'this)))))))
-                       (do
-                         (~'xf ~'buf)
-                         (if (.isEmpty ~'buf)
-                           nil
-                           (.toTail ~'buf))))
+        invoke-body `(loop [~'c (.seq ~'s)]
+                       (if (clojure.lang.Util/identical ~'c nil)
+                         (do
+                           (~'xf ~'buf)
+                           (if (.isEmpty ~'buf)
+                             nil
+                             (.toTail ~'buf)))
+                         (let [~(with-meta (symbol "c") {:tag (class->sym clojure.lang.ISeq)})
+                               (if (instance? clojure.lang.IChunkedSeq ~'c)
+                                 (let [~(with-meta (symbol "c") {:tag (class->sym clojure.lang.IChunkedSeq)}) ~'c
+                                       ~(with-meta (symbol "chunk") {:tag (class->sym chunk-type)}) (.chunkedFirst ~'c)
+                                       ~'n (.count ~'chunk)]
+                                   (loop [~'i 0]
+                                     (if (clojure.lang.Numbers/lt ~'i ~'n)
+                                       (if (clojure.lang.Util/identical ~'buf ~xf-invoke-chunk)
+                                         (recur (clojure.lang.Numbers/unchecked_inc ~'i))
+                                         ;; reduced
+                                         clojure.lang.PersistentList/EMPTY)
+                                       (.chunkedMore ~'c))))
+                                 (let [~(with-meta (symbol "c") {:tag (class->sym seq-class)}) ~'c]
+                                   (if (clojure.lang.Util/identical ~'buf ~xf-invoke-first)
+                                     (.more ~'c)
+                                     clojure.lang.PersistentList/EMPTY)))]
+                           (if (.isEmpty ~'buf)
+                             (recur (.seq ~'c))
+                             (do
+                               (set! ~'s ~'c)
+                               (.toSeq ~'buf (clojure.lang.LazySeq. ~'this)))))))
 
         body `(deftype ~(symbol class-name) ~args
                 IFn
