@@ -6,7 +6,7 @@
     [clojure.set :as set]
     [clojure.walk :as walk])
   (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk ILongChunk LongCons]
-           [clojure.lang Numbers]
+           [clojure.lang Numbers IFn]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
 (set! *warn-on-reflection* true)
@@ -56,146 +56,6 @@
       (when (pos? len)
         (double-chunk arr 0 len)))))
 
-;;;;;;;;;;;;;;;;;;;
-;; XFSeq creation
-;;
-
-(defonce ^:private deconstructed (Object.))
-
-;; TODO: Can we generate classes with:
-;;       * type hinted arguments
-;;       * Generated names, like XFSeqStep_LLOL
-;; TODO: Can we get the generated class if it already exists?
-;;       - No, let's just generate them all and assume they exist.
-;;       - It'll be 3^4 = 81 classes (3 values, 4 inputs)
-;;       - We may want to be smarter if we want to add chunked-or-not seqs.
-;;         to skip the chunked check, which makes 4^4 = 256 classes.
-;;         - I.e. generate on the fly.
-;;       - Hmm, do they really need to be deftypes?
-;;       - They really just need to be invokable?
-;;         - Yes. They need to be deftypes to get the mutable hinted fields.
-
-(defmacro gen-deftype [name args]
-  `(deftype ~name ~args))
-
-(comment
-  (gen-deftype GenTest [^:unsynchronized-mutable ^long a])
-  )
-
-(def buffer-map {'Object xfseq.buffer.ObjectBuffer
-                 'long   xfseq.buffer.LongBuffer
-                 'double xfseq.buffer.DoubleBuffer})
-
-(defn gen-xfseq-name [{:keys [arities input-type return-hint]}]
-  (let [hint->letter (fn [hint]
-                       (Character/toUpperCase (.charAt (str hint) 0)))]
-    (->> (clj.core/map #(get arities %) [1 2])
-      (mapcat (fn [{:keys [return args]}]
-                (cons return args)))
-      (concat [input-type (or return-hint 'Object)])
-      (clj.core/map hint->letter)
-      (apply str "XFSeqStep_"))))
-
-(defn gen-xfseq-step
-  "Generates a class and returns a constructor function."
-  [{:keys [arities input-type return-hint] :as args}]
-  (let [type-name (gen-xfseq-name args)
-        rf-arg-type (-> (get arities 2)
-                      (:args)
-                      (nth 1))
-
-        buf-type (or
-                   return-hint
-                   (when (= rf-arg-type input-type) input-type)
-                   'Object)
-        buf-class (get buffer-map buf-type)
-        new-buf (fn []
-                  (.newInstance ^Class buf-class))
-
-        args [(with-meta (symbol "buf") {:tag     buf-class
-                                         :private true})
-              (with-meta (symbol "s") {:tag                    clojure.lang.ISeq
-                                       :unsynchronized-mutable true})]
-        invoke-body `((do))]
-    `(deftype ~type-name ~args
-       ~'cloure.lang.IFn
-       (~'invoke [~'this]
-         ~@invoke-body))
-
-    (let [ctor (resolve (symbol (str '-> type-name)))]
-      (fn [coll]
-        (ctor (new-buf) coll)))))
-
-
-(deftype InitXFSeq [xf coll]
-  clojure.lang.IFn
-  (invoke [this]
-    (when-some [s (condp satisfies? coll
-                    ILongSeqable (long-seq coll)
-                    IDoubleSeqable (double-seq coll)
-                    (seq coll))]
-      (let [buf (case (::return-hint (meta xf))
-                  long (LongBuffer.)
-                  double (DoubleBuffer.)
-                  Object (ObjectBuffer.)
-                  ;; If there's no return hint, use a buffer
-                  ;; of the same type as the incoming seq.
-                  (condp instance? s
-                    ILongSeq (LongBuffer.)
-                    IDoubleSeq (DoubleBuffer.)
-                    (ObjectBuffer.)))
-
-            rf (xf buf)
-
-            step (condp instance? s
-                   ILongSeq (XFSeqStep$LongStep. rf s buf)
-                   IDoubleSeq (XFSeqStep$DoubleStep. rf s buf)
-                   (XFSeqStep$ObjectStep. rf s buf))]
-        (step)))))
-
-(declare ensure-valid)
-
-(deftype XFSeqHead [^:unsynchronized-mutable xf
-                    ^:unsynchronized-mutable coll]
-  clojure.lang.Sequential
-  clojure.lang.Seqable
-  (seq [this]
-    (locking this
-      (ensure-valid coll "Unable to create a seq from a deconstructed XFSeq")
-
-      (when (some? xf)
-        (set! coll (clojure.lang.LazySeq. (InitXFSeq. xf coll)))
-        (set! xf nil))
-
-      (seq coll)))
-
-  clojure.lang.IPending
-  (isRealized [this]
-    (locking this
-      (ensure-valid coll "XFSeqHead already deconstructed")
-      (nil? xf)))
-
-  IDeconstruct
-  (deconstruct! [this]
-    (locking this
-      (ensure-valid coll "Unable to deconstruct XFSeq more than once")
-      (when (some? xf)
-        (let [ret [xf coll]]
-          (set! xf nil)
-          (set! coll deconstructed)
-          ret)))))
-
-(defn- ensure-valid [coll msg]
-  (when (= coll deconstructed)
-    (throw (ex-info msg {}))))
-
-(defmethod print-method XFSeqHead
-  [value writer]
-  (print-method (seq value) writer))
-
-(defn xf-seq
-  [xf coll]
-  (XFSeqHead. xf coll))
 
 ;;;;;;;;;;;;;;;;;;;
 ;; Type analyzing
@@ -358,6 +218,319 @@
                    1 (rf-type-analyzer xf-body)
                    2 (rf+f-type-analyzer xf-body (second args)))]
     (xf-factory* analyzer)))
+
+;;;;;;;;;;;;;;;;;;;
+;; XFSeq creation
+;;
+
+(defonce ^:private deconstructed (Object.))
+
+;; TODO: Can we generate classes with:
+;;       * type hinted arguments
+;;       * Generated names, like XFSeqStep_LLOL
+;; TODO: Can we get the generated class if it already exists?
+;;       - No, let's just generate them all and assume they exist.
+;;       - It'll be 3^4 = 81 classes (3 values, 4 inputs)
+;;       - We may want to be smarter if we want to add chunked-or-not seqs.
+;;         to skip the chunked check, which makes 4^4 = 256 classes.
+;;         - I.e. generate on the fly.
+;;       - Hmm, do they really need to be deftypes?
+;;       - They really just need to be invokable?
+;;         - Yes. They need to be deftypes to get the mutable hinted fields.
+
+(defmacro gen-deftype [name args]
+  (prn (clj.core/mapv meta args))
+  `(deftype ~name ~args))
+
+(comment
+  (gen-deftype GenTest [^:unsynchronized-mutable ^long a])
+  )
+
+(def buffer-map {'Object xfseq.buffer.ObjectBuffer
+                 'long   xfseq.buffer.LongBuffer
+                 'double xfseq.buffer.DoubleBuffer})
+
+(defn class->sym [^Class c]
+  (symbol (.getName c)))
+
+(defn gen-xfseq-name [{:keys [arity-2 input-type]}]
+  (let [hint->letter (fn [hint]
+                       (Character/toUpperCase (.charAt (str hint) 0)))]
+    (->> [(nth (:args arity-2) 1) input-type]
+      (clj.core/map hint->letter)
+      (apply str "XFSeqStep_"))))
+
+(defn- gen-xfseq-step*
+  "Generates a class and returns a constructor function."
+  [class-name {:keys [arity-2 input-type]}]
+  (let [rf-arg-type (nth (:args arity-2) 1)
+
+        buf-type rf-arg-type
+        buf-class (get buffer-map buf-type)
+        _ (when (nil? buf-class)
+            (prn "buf-type: " buf-type))
+
+        _ (prn "classes: "
+            (clj.core/map (juxt identity type)
+              (into (:args arity-2)
+                [(:class arity-2) input-type])))
+
+        seq-class (condp = input-type
+                    'long xfseq.ILongSeq
+                    'double xfseq.IDoubleSeq
+                    clojure.lang.ISeq)
+
+        chunk-type (condp = input-type
+                     'long xfseq.ILongChunk
+                     'double xfseq.IDoubleChunk
+                     clojure.lang.IChunk)
+
+        args [(with-meta (symbol "buf") {:tag     (class->sym buf-class)
+                                         :private true})
+              (with-meta (symbol "xf") {:tag (class->sym (:class arity-2))})
+              (with-meta (symbol "s") {:tag                    (class->sym seq-class)
+                                       :unsynchronized-mutable true})]
+
+        xf-invoke-first (let []
+                          (if (= 'Object buf-type)
+                            `(~'xf ~'buf (.first ~'c))
+                            (concat
+                              [(if (= rf-arg-type 'Object)
+                                 '.invoke
+                                 '.invokePrim)
+                               'xf
+                               'buf]
+                              [(cond->> (condp = input-type
+                                          'long `(.firstLong ~'c)
+                                          'double `(.firstDouble ~'c)
+                                          'Object `(.first ~'c))
+                                 ;; If the input type doesn't match the
+                                 ;; xf input arg type, then cast it.
+                                 (not= buf-type input-type)
+                                 (list (condp = buf-type
+                                         'long 'clojure.lang.RT/longCast
+                                         'double 'clojure.lang.RT/doubleCast)))])))
+
+        xf-invoke-chunk (if (= 'Object buf-type)
+                          `(~'xf ~'buf (.nth ~'chunk ~'i))
+                          (concat
+                            [(if (= rf-arg-type 'Object)
+                               '.invoke
+                               '.invokePrim)
+                             'xf
+                             'buf]
+                            [(cond->> (condp = input-type
+                                        'long `(.nthLong ~'chunk ~'i)
+                                        'double `(.nthDouble ~'chunk ~'i)
+                                        'Object `(.nth ~'chunk ~'i))
+                               ;; If the input type doesn't match the
+                               ;; xf input arg type, then cast it.
+                               (not= buf-type input-type)
+                               (list (condp = buf-type
+                                       'long 'clojure.lang.RT/longCast
+                                       'double 'clojure.lang.RT/doubleCast)))]))
+
+
+        invoke-body `(or
+                       (loop [~'c (seq ~'s)]
+                         (when-not (clojure.lang.Util/identical ~'c nil)
+                           (let [~'c (if (chunked-seq? ~'c)
+                                       (let [~(with-meta (symbol "c") {:tag (class->sym clojure.lang.IChunkedSeq)}) ~'c
+                                             ~(with-meta (symbol "chunk") {:tag (class->sym chunk-type)}) (.chunkedFirst ~'c)
+                                             ~'n (.count ~'chunk)]
+                                         (loop [~'i 0]
+                                           (if (clojure.lang.Numbers/lt ~'i ~'n)
+                                             (if (clojure.lang.Util/identical ~'buf ~xf-invoke-chunk)
+                                               (recur (clojure.lang.Numbers/unchecked_inc ~'i))
+                                               ;; reduced
+                                               clojure.lang.PersistentList/EMPTY)
+                                             (.chunkedMore ~'c))))
+                                       (let [~(with-meta (symbol "c") {:tag (class->sym seq-class)}) ~'c]
+                                         (if (clojure.lang.Util/identical ~'buf ~xf-invoke-first)
+                                           (.more ~'c)
+                                           clojure.lang.PersistentList/EMPTY)))]
+                             (if (.isEmpty ~'buf)
+                               (recur (seq ~'c))
+                               (do
+                                 (set! (. ~'this ~'-s) ~'c)
+                                 (.toSeq ~'buf (clojure.lang.LazySeq. ~'this)))))))
+                       (do
+                         (~'xf ~'buf)
+                         (if (.isEmpty ~'buf)
+                           nil
+                           (.toTail ~'buf))))
+
+        body `(deftype ~(symbol class-name) ~args
+                IFn
+                (~'invoke [~'this]
+                  ~invoke-body))]
+
+    [body buf-class]))
+
+(defmacro gen-xfseq-step [args]
+  (let [class-name (gen-xfseq-name args)
+        [body# buffer-class#] (gen-xfseq-step* class-name args)
+        ctor# (symbol (str '-> class-name))]
+
+    `(do
+       ~body#
+
+       [~class-name
+        (fn [xf# coll#]
+          (let [buf# (.newInstance ^Class ~buffer-class#)]
+            (~ctor# buf# (xf# buf#) coll#)))])))
+
+
+(comment
+  (-> (gen-xfseq-step* {:arity-2    {:args  ['Object 'long]
+                                     :class clojure.lang.IFn$OLO}
+                        :input-type 'long})
+    (doto clojure.pprint/pprint)
+    (eval))
+
+  (gen-xfseq-step {:arity-2    {:args  [Object long]
+                                :class clojure.lang.IFn$OLO}
+                   :input-type long})
+
+  (macroexpand-1 '(gen-xfseq-step {:arity-2    {:args  [Object long]
+                                                :class clojure.lang.IFn$OLO}
+                                   :input-type long}))
+
+  ((xfseq.core.XFSeqStep_LLO. ))
+
+  (def test-seq (second (gen-xfseq-step {:arity-2    {:args  [Object long]
+                                                      :class clojure.lang.IFn$OLO}
+                                         :input-type long})))
+
+  ((test-seq (map long-inc) (long-seq (long-array [1 2 3]))))
+
+  (clojure.lang.Reflector/getField xfseq.core.XFSeqStep_LLO "s" false)
+
+
+
+  (-> (gen-xfseq-step* {:arity-2    {:args  ['Object 'long]
+                                     :class clojure.lang.IFn$OLO}
+                        :input-type 'long})
+    (nth 2)
+    (nth 2)
+    (meta))
+  )
+
+(def xfseq-classes (atom {}))
+
+(defmacro gen-xfseq-classes []
+  (let [types '[long double Object]
+        class-ids (for [arity-2-arg types
+                        input-type types]
+                    [arity-2-arg input-type])]
+    `(do
+       ~@(clj.core/map
+           (fn [[arity-2-arg input-type]]
+             (let [klass (if (= arity-2-arg 'Object)
+                           clojure.lang.IFn
+                           (Class/forName
+                             (format "clojure.lang.IFn$O%sO"
+                               (Character/toUpperCase
+                                 (.charAt (str arity-2-arg) 0)))))]
+               `(let [[name# ctor#] (gen-xfseq-step
+                                      {:arity-2     {:args  [~'Object ~arity-2-arg]
+                                                     :class ~klass}
+                                       :input-type  ~input-type})]
+                  (swap! xfseq-classes assoc name# ctor#))))
+           class-ids))))
+
+(gen-xfseq-classes)
+
+(defn- init-xfseq-step [xf coll xfseq-step-args]
+  (prn "Using xfseq: " (gen-xfseq-name xfseq-step-args))
+  (let [ctor (get @xfseq-classes (gen-xfseq-name xfseq-step-args))]
+    (ctor xf coll)))
+
+(comment
+  ((init-xfseq-step (map inc) [1 2 3]
+     {:arity-2    {:args  '[Object long]
+                   :class clojure.lang.IFn$OLO}
+      :input-type 'long}
+     )))
+
+
+
+(deftype InitXFSeq [xf coll]
+  clojure.lang.IFn
+  (invoke [this]
+    (when-some [s (condp satisfies? coll
+                    ILongSeqable (long-seq coll)
+                    IDoubleSeqable (double-seq coll)
+                    (seq coll))]
+      (let [buf (case (::return-hint (meta xf))
+                  long (LongBuffer.)
+                  double (DoubleBuffer.)
+                  Object (ObjectBuffer.)
+                  ;; If there's no return hint, use a buffer
+                  ;; of the same type as the incoming seq.
+                  (condp instance? s
+                    ILongSeq (LongBuffer.)
+                    IDoubleSeq (DoubleBuffer.)
+                    (ObjectBuffer.)))
+
+            rf (xf buf)
+
+            input-type (condp instance? s
+                         ILongSeq 'long
+                         IDoubleSeq 'double
+                         'Object)
+
+            ana (analyze-primitive-interfaces (interfaces (class rf)))
+
+            step (init-xfseq-step xf s
+                   {:arity-2    (get ana 2 {:args  '[Object Object]
+                                            :class clojure.lang.IFn})
+                    :input-type input-type})]
+        (step)))))
+
+(declare ensure-valid)
+
+(deftype XFSeqHead [^:unsynchronized-mutable xf
+                    ^:unsynchronized-mutable coll]
+  clojure.lang.Sequential
+  clojure.lang.Seqable
+  (seq [this]
+    (locking this
+      (ensure-valid coll "Unable to create a seq from a deconstructed XFSeq")
+
+      (when (some? xf)
+        (set! coll (clojure.lang.LazySeq. (InitXFSeq. xf coll)))
+        (set! xf nil))
+
+      (seq coll)))
+
+  clojure.lang.IPending
+  (isRealized [this]
+    (locking this
+      (ensure-valid coll "XFSeqHead already deconstructed")
+      (nil? xf)))
+
+  IDeconstruct
+  (deconstruct! [this]
+    (locking this
+      (ensure-valid coll "Unable to deconstruct XFSeq more than once")
+      (when (some? xf)
+        (let [ret [xf coll]]
+          (set! xf nil)
+          (set! coll deconstructed)
+          ret)))))
+
+(defn- ensure-valid [coll msg]
+  (when (= coll deconstructed)
+    (throw (ex-info msg {}))))
+
+(defmethod print-method XFSeqHead
+  [value writer]
+  (print-method (seq value) writer))
+
+(defn xf-seq
+  [xf coll]
+  (XFSeqHead. xf coll))
 
 ;;;;;;;;;;;;;;;;
 ;; map helpers
@@ -535,6 +708,8 @@
 
 (comment
 
+  (xf-seq (map (fn ^double [^double d] (clojure.lang.Numbers/add d 1.0))) #{3 2 1})
+
   ;; Currently returns incorrectly:
   ;; (2 3 nil)
   (map (fn ^long [^long i] (Numbers/add i (long 1))) (range (long 1e5)))
@@ -641,4 +816,15 @@
 
   ;; Note: This can get even faster with primitive invocations
   ;; of the reducing function.
+
+
+
+  (def ->long-long-xfseq (gen-xfseq-step {:arity-2    {:args  ['Object 'long]
+                                                       :class clojure.lang.IFn$OLO}
+                                          :input-type 'long}))
+
+
+
+  (->long-long-xfseq (map long-inc) (long-seq (long-array (repeat (long 1e6) 1))))
+
   )
