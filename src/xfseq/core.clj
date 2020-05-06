@@ -331,6 +331,7 @@
                                        'double 'clojure.lang.RT/doubleCast)))]))
 
 
+        ;; TODO: generate my own bytecode.
         invoke-body `(loop [~'c (.seq ~'s)]
                        (if (clojure.lang.Util/identical ~'c nil)
                          (do
@@ -364,6 +365,8 @@
                 IFn
                 (~'invoke [~'this]
                   ~invoke-body))]
+
+
 
     [body buf-class]))
 
@@ -450,8 +453,21 @@
   ((init-xfseq-step (map inc) [1 2 3]
      {:arity-2    {:args  '[Object long]
                    :class clojure.lang.IFn$OLO}
-      :input-type 'long}
-     )))
+      :input-type 'long}))
+
+  ;; Outputs the Java ASM code for creating a class
+  (jdk.internal.org.objectweb.asm.util.ASMifier/main
+    (into-array String ["/Users/petter/Github/petterik/xfseq/classes/xfseq/core/XFSeqStep_DD.class"]))
+
+  (jdk.internal.org.objectweb.asm.util.ASMifier/main
+    (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimple.class"]))
+
+
+  ;; What we can do is write the optimal Java code, compile to a class, and ASMifier it.
+  ;; Take the parts that we want from it and dynamically add it to the class.
+
+  ;; The generated classes can also be deduped.
+  )
 
 
 
