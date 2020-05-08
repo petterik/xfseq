@@ -1,5 +1,8 @@
 (ns xfseq.gen
-  (:import [clojure.asm ClassWriter FieldVisitor MethodVisitor AnnotationVisitor Opcodes Type Label]))
+  (:import
+    [clojure.asm ClassWriter FieldVisitor MethodVisitor AnnotationVisitor Opcodes Type Label]))
+
+(set! *warn-on-reflection* true)
 
 (defn- invoke-interface [^MethodVisitor mv ^Class class ^String method ^String type-sig]
   (.visitMethodInsn mv
@@ -254,10 +257,31 @@
 
     (.toByteArray cw)))
 
+(defmacro gen-xf-seq-class []
+  (let [cname# "xfseq.gen.XFSeqStep_OO"]
+    `(let [klass# (.defineClass ^clojure.lang.DynamicClassLoader (deref clojure.lang.Compiler/LOADER)
+                   ~cname#
+                   (generate-xfseq-simple ~cname#)
+                   nil)
+           ctor# ^java.lang.reflect.Constructor (aget (.getDeclaredConstructors klass#) 0)]
+       (.setAccessible ctor# true)
+       ;; TODO: Create instance without using reflection?
+       (fn [& args#]
+         (.newInstance ctor# (object-array args#))))))
+
+(def xf-seq-ctor (gen-xf-seq-class))
+
+(defn xf-seq [xf coll]
+  (let [buf (xfseq.buffer.ObjectBuffer.)]
+    (clojure.lang.LazySeq.
+      (xf-seq-ctor buf (xf buf) (seq coll)))))
+
+
 (comment
 
-  (.analyze (Analyzer. (SimpleVerifier.)) "xfseq/gen/MyOwn" )
+  (xf-seq (map inc) [1 2 3])
 
+  (.analyze (Analyzer. (SimpleVerifier.)) "xfseq/gen/MyOwn" )
   (require '[clojure.java.io :as io])
   (def bytecode
     (let [cname "xfseq.gen.MyOwn"
@@ -281,7 +305,6 @@
     (.accept cr v 0))
 
   (import '[clojure.lang AFn])
-
 
 
   (let [cn (jdk.internal.org.objectweb.asm.tree.ClassNode.)
