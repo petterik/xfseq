@@ -445,7 +445,7 @@
 (gen-xfseq-classes)
 
 (defn- init-xfseq-step [xf coll xfseq-step-args]
-  (prn "Using xfseq: " (gen-xfseq-name xfseq-step-args))
+  #_(prn "Using xfseq: " (gen-xfseq-name xfseq-step-args))
   (let [ctor (get @xfseq-classes (gen-xfseq-name xfseq-step-args))]
     (ctor xf coll)))
 
@@ -462,6 +462,47 @@
   (jdk.internal.org.objectweb.asm.util.ASMifier/main
     (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimple.class"]))
 
+  (import '[xfseq.gen MyOwn])
+  (let [buf (ObjectBuffer.)]
+    (clojure.lang.LazySeq. (MyOwn. buf ((map inc) buf) (seq [1 2 3]))))
+
+  (=
+    (let [v (into [] (range 1e6))]
+      (System/gc)
+      (dotimes [_ 10]
+        (time
+          (let [buf (ObjectBuffer.)]
+            (doall
+              (clojure.lang.LazySeq. (MyOwn. buf ((map identity) buf) (seq v))))
+            nil)))
+      (let [buf (ObjectBuffer.)]
+        (clojure.lang.LazySeq. (MyOwn. buf ((map identity) buf) (seq v)))))
+
+    (let [v (into [] (range 1e6))]
+      (System/gc)
+      (dotimes [_ 10]
+        (time
+          (do
+            (doall
+              (clojure.lang.LazySeq. (init-xfseq-step (map identity) (seq v)
+                                       {:arity-2    {:args  '[Object Object]
+                                                     :class clojure.lang.IFn}
+                                        :input-type 'Object})))
+            nil)))
+      (clojure.lang.LazySeq. (init-xfseq-step (map identity) (seq v)
+                               {:arity-2    {:args  '[Object Object]
+                                             :class clojure.lang.IFn}
+                                :input-type 'Object})))
+
+    (let [v (into [] (range 1e6))]
+      (System/gc)
+      (dotimes [_ 10]
+        (time
+          (do
+            (doall
+              (clj.core/map identity v))
+            nil)))
+      (clj.core/map identity v)))
 
   ;; What we can do is write the optimal Java code, compile to a class, and ASMifier it.
   ;; Take the parts that we want from it and dynamically add it to the class.
