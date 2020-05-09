@@ -2,10 +2,9 @@
   (:refer-clojure :exclude [map filter remove take])
   (:require
     [clojure.core :as clj.core]
-    [clojure.core.protocols :as core.protocols]
     [clojure.set :as set]
     [clojure.walk :as walk])
-  (:import [xfseq ILongSeq XFSeqStep$LongStep IDoubleSeq XFSeqStep$DoubleStep XFSeqStep$ObjectStep LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk ILongChunk LongCons]
+  (:import [xfseq ILongSeq IDoubleSeq LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk]
            [clojure.lang Numbers IFn]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 

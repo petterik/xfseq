@@ -1,2 +1,6 @@
 {:deps  {org.clojure/clojure {:mvn/version "1.10.1"}}
- :paths ["src" "classes/production/xfseq"]}
+ :paths ["src" "classes/production/xfseq"]
+ :aliases
+ {:bench
+  {:extra-paths ["test"]
+   :extra-deps {criterium {:mvn/version "0.4.5"}}}}}
