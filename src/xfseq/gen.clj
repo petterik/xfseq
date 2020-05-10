@@ -1,4 +1,8 @@
 (ns xfseq.gen
+  (:require
+    [clojure.string :as string]
+    [xfseq.protocols :as p]
+    [xfseq.analyze :as ana])
   (:import
     [clojure.asm ClassWriter FieldVisitor MethodVisitor AnnotationVisitor Opcodes Type Label]))
 
@@ -18,20 +22,33 @@
 (defn iload-local [^MethodVisitor mv idx]
   (.visitVarInsn mv Opcodes/ILOAD idx))
 
-(defn generate-xfseq-simple [^String class-name]
-  (let [class-name (.replaceAll class-name "\\." "/")
+(def type->letter (comp #(Character/toUpperCase ^char %) first str))
+
+(defn generate-xfseq-simple [arg-2-type input-type]
+  (let [class-name (str "xfseq.gen.XFSeqStep_" (type->letter arg-2-type) (type->letter input-type))
+        iname (.replaceAll class-name "\\." "/")
 
         buffer-class xfseq.buffer.IXFSeqBuffer
+        xf-class (condp = arg-2-type
+                   'long clojure.lang.IFn$OLO
+                   'double clojure.lang.IFn$ODO
+                   clojure.lang.IFn)
         seq-class clojure.lang.ISeq
-        xf-class clojure.lang.IFn
 
         arity-1-ret-class java.lang.Object
         arity-1-arg-0-class java.lang.Object
 
         arity-2-ret-class java.lang.Object
         arity-2-arg-0-class java.lang.Object
-        arity-2-arg-1-class java.lang.Object
+        arity-2-arg-1-class (condp = arg-2-type
+                              'long Long/TYPE
+                              'double Double/TYPE
+                              java.lang.Object)
 
+
+        invoke-method (if (= clojure.lang.IFn xf-class)
+                        "invoke"
+                        "invokePrim")
 
         cw (ClassWriter. 0)
 
@@ -40,7 +57,6 @@
         seq-type (Type/getDescriptor seq-class)
 
         iseq-type (Type/getDescriptor clojure.lang.ISeq)
-        afn-type (Type/getDescriptor clojure.lang.AFn)
         obj-type (Type/getDescriptor java.lang.Object)
         ichunk-type (Type/getDescriptor clojure.lang.IChunk)
 
@@ -50,16 +66,52 @@
         arity-2-ret-type (Type/getDescriptor arity-2-ret-class)
         arity-2-arg-0-type (Type/getDescriptor arity-2-arg-0-class)
         arity-2-arg-1-type (Type/getDescriptor arity-2-arg-1-class)
-        ]
+
+        invoke-xf (fn [^MethodVisitor mv]
+                    ;; Cast input from the seq before it's passed to the xf if the types differ.
+                    (when (and (= invoke-method "invokePrim") (not= arg-2-type input-type))
+                      (if (= 'Object input-type)
+                        (let [ref-type (condp = arg-2-type
+                                         'long (Type/getInternalName java.lang.Long)
+                                         'double (Type/getInternalName java.lang.Double))
+                              cast-method (condp = arg-2-type
+                                            'long "longValue"
+                                            'double "doubleValue")]
+                          (.visitTypeInsn mv Opcodes/CHECKCAST ref-type)
+                          (.visitMethodInsn mv Opcodes/INVOKEVIRTUAL
+                            ref-type
+                            cast-method
+                            (format "()%s" arity-2-arg-1-type)
+                            false))
+                        (throw (ex-info "TODO: Handle case when casting between double->long and long->double"
+                                 {:input-type input-type
+                                  :arg-2-type arg-2-type}))))
+                    ;; Invoke xf with either invoke or invokePrim
+                    (invoke-interface mv xf-class invoke-method
+                      (format "(%s%s)%s"
+                        arity-2-arg-0-type
+                        arity-2-arg-1-type
+                        arity-2-ret-type)))]
 
     ;; Class definition
     (.visit cw
       Opcodes/V1_8                                          ;; version
       (+ Opcodes/ACC_PUBLIC Opcodes/ACC_SUPER)              ;; access
-      class-name                                            ;; class-name
+      iname                                            ;; class-name
       nil                                                   ;; generics
       "clojure/lang/AFn"                                    ;; super class
       nil)                                                  ;; interfaces
+
+    ;; Visit the inner class of IFn if we're invoking it later.
+    (when (not= clojure.lang.IFn xf-class)
+      (.visitInnerClass cw
+        (Type/getInternalName xf-class)
+        (Type/getInternalName clojure.lang.IFn)
+        (let [cname (.getName xf-class)
+              idx (string/last-index-of cname \$)]
+          ;; "OLO" or "ODO"
+          (subs cname (inc idx) (.length cname)))
+        (+ Opcodes/ACC_PUBLIC Opcodes/ACC_STATIC Opcodes/ACC_ABSTRACT Opcodes/ACC_INTERFACE)))
 
     ;; Fields
     (doto (.visitField cw (+ Opcodes/ACC_PRIVATE Opcodes/ACC_FINAL) "buf" buffer-type nil nil)
@@ -77,13 +129,13 @@
       (.visitMethodInsn Opcodes/INVOKESPECIAL (Type/getInternalName clojure.lang.AFn) "<init>" "()V" false)
       (.visitVarInsn Opcodes/ALOAD 0)
       (.visitVarInsn Opcodes/ALOAD 1)
-      (.visitFieldInsn Opcodes/PUTFIELD class-name "buf" buffer-type)
+      (.visitFieldInsn Opcodes/PUTFIELD iname "buf" buffer-type)
       (.visitVarInsn Opcodes/ALOAD 0)
       (.visitVarInsn Opcodes/ALOAD 2)
-      (.visitFieldInsn Opcodes/PUTFIELD class-name "xf" xf-type)
+      (.visitFieldInsn Opcodes/PUTFIELD iname "xf" xf-type)
       (.visitVarInsn Opcodes/ALOAD 0)
       (.visitVarInsn Opcodes/ALOAD 3)
-      (.visitFieldInsn Opcodes/PUTFIELD class-name "s" seq-type)
+      (.visitFieldInsn Opcodes/PUTFIELD iname "s" seq-type)
       (.visitInsn Opcodes/RETURN)
       ;; TODO: Figure out if it's going to be too hard to calculate these frame sizes.
       (.visitMaxs 2 4)
@@ -97,13 +149,13 @@
           ;;;;;
           ;; Store buf as a local variable in idx 1
           (.visitVarInsn Opcodes/ALOAD 0)
-          (.visitFieldInsn Opcodes/GETFIELD class-name "buf" buffer-type)
+          (.visitFieldInsn Opcodes/GETFIELD iname "buf" buffer-type)
           (.visitVarInsn Opcodes/ASTORE 1)
           ;;;;
           ;; Start for-loop
           ;; Get ISeq s, and assign it to ISeq c at index 2
           (.visitVarInsn Opcodes/ALOAD 0)
-          (.visitFieldInsn Opcodes/GETFIELD class-name "s" seq-type)
+          (.visitFieldInsn Opcodes/GETFIELD iname "s" seq-type)
           (invoke-interface clojure.lang.ISeq "seq" (format "()%s" iseq-type))
           (.visitVarInsn Opcodes/ASTORE 2)
 
@@ -144,16 +196,12 @@
           ;; Load and call xf
           (.visitVarInsn Opcodes/ALOAD 1)
           (.visitVarInsn Opcodes/ALOAD 0)
-          (.visitFieldInsn Opcodes/GETFIELD class-name "xf" xf-type)
+          (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
           (.visitVarInsn Opcodes/ALOAD 1)
           (.visitVarInsn Opcodes/ALOAD 3)
           (.visitVarInsn Opcodes/ILOAD 4)
           (invoke-interface clojure.lang.IChunk "nth" (format "(I)%s" obj-type)) ;; TODO: Call nthLong/nthDouble depending on input-type
-          (invoke-interface xf-class "invoke"               ;; TODO: invokePrim depending on xf-class
-            (format "(%s%s)%s"
-              arity-2-ret-type
-              arity-2-arg-0-type
-              arity-2-arg-1-type))
+          (invoke-xf)
           ;; Continue chunked for-loop if buf == return from xf
           (.visitJumpInsn Opcodes/IF_ACMPEQ (label 5))      ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 5?
           ;; Jump to label 1 if buf != return (end for-loop)
@@ -179,15 +227,11 @@
           ;; Load and call xf
           (.visitVarInsn Opcodes/ALOAD 1)
           (.visitVarInsn Opcodes/ALOAD 0)
-          (.visitFieldInsn Opcodes/GETFIELD class-name "xf" xf-type)
+          (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
           (.visitVarInsn Opcodes/ALOAD 1)
           (.visitVarInsn Opcodes/ALOAD 2)
           (invoke-interface clojure.lang.ISeq "first" (format "()%s" obj-type)) ;; TODO: Call firstLong/firstDouble depending on input-type
-          (invoke-interface xf-class "invoke"
-            (format "(%s%s)%s"
-              arity-2-ret-type
-              arity-2-arg-0-type
-              arity-2-arg-1-type))
+          (invoke-xf)
           (.visitJumpInsn Opcodes/IF_ACMPEQ (label 7))      ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 7?
           (.visitJumpInsn Opcodes/GOTO (label 1))
           (.visitLabel (label 7))
@@ -206,7 +250,7 @@
           (.visitJumpInsn Opcodes/IFNE (label 8))
           (.visitVarInsn Opcodes/ALOAD 0)
           (.visitVarInsn Opcodes/ALOAD 2)
-          (.visitFieldInsn Opcodes/PUTFIELD class-name "s" seq-type)
+          (.visitFieldInsn Opcodes/PUTFIELD iname "s" seq-type)
           ;; Construct the next LazySeq and return
           (.visitVarInsn Opcodes/ALOAD 1)
           (.visitTypeInsn Opcodes/NEW (Type/getInternalName clojure.lang.LazySeq))
@@ -232,8 +276,12 @@
           (.visitLabel (label 1))
           (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
           (.visitVarInsn Opcodes/ALOAD 0)
-          (.visitFieldInsn Opcodes/GETFIELD class-name "xf" xf-type)
+          (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
           (.visitVarInsn Opcodes/ALOAD 1)
+          (cond->
+            ;; Invoking regular IFn at the end and needs(?) a castcheck to that type.
+            (not= clojure.lang.IFn xf-class)
+            (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IFn)))
           (invoke-interface xf-class "invoke" (format "(%s)%s" arity-1-ret-type arity-1-arg-0-type))
           (.visitInsn Opcodes/POP)
           (.visitVarInsn Opcodes/ALOAD 1)
@@ -255,26 +303,58 @@
 
     (.visitEnd cw)
 
-    (.toByteArray cw)))
+    [class-name (.toByteArray cw)]))
 
-(defmacro gen-xf-seq-class []
-  (let [cname# "xfseq.gen.XFSeqStep_OO"]
-    `(let [klass# (.defineClass ^clojure.lang.DynamicClassLoader (deref clojure.lang.Compiler/LOADER)
-                   ~cname#
-                   (generate-xfseq-simple ~cname#)
-                   nil)
-           ctor# ^java.lang.reflect.Constructor (aget (.getDeclaredConstructors klass#) 0)]
-       (.setAccessible ctor# true)
-       ;; TODO: Create instance without using reflection?
-       (fn [& args#]
-         (.newInstance ctor# (object-array args#))))))
+(defmacro gen-xf-seq-class [arg-type input-type]
+  `(let [[cname# bytes#] (generate-xfseq-simple ~arg-type ~input-type)
+         klass# (.defineClass ^clojure.lang.DynamicClassLoader (deref clojure.lang.Compiler/LOADER)
+                  cname#
+                  bytes#
+                  nil)
+         ctor# ^java.lang.reflect.Constructor (aget (.getDeclaredConstructors klass#) 0)]
+     (.setAccessible ctor# true)
+     ;; TODO: Create instance without using reflection?
+     (fn [& args#]
+       (.newInstance ctor# (object-array args#)))))
 
-(def xf-seq-ctor (gen-xf-seq-class))
+(def xf-seq-ctors
+  (into {}
+    (map (fn [[arg-type input-type :as types]]
+           [types (gen-xf-seq-class arg-type input-type)]))
+    (let [types ['Object 'long 'double]]
+      (for [a types b ['Object]]
+        [a b]))))
 
 (defn xf-seq [xf coll]
-  (let [buf (xfseq.buffer.ObjectBuffer.)]
-    (clojure.lang.LazySeq.
-      (xf-seq-ctor buf (xf buf) (seq coll)))))
+  (clojure.lang.LazySeq.
+    (when-some [s (condp satisfies? coll
+                    p/ILongSeqable (p/long-seq coll)
+                    p/IDoubleSeqable (p/double-seq coll)
+                    (seq coll))]
+      (let [buf (case (::return-hint (meta xf))
+                 long (xfseq.buffer.LongBuffer.)
+                 double (xfseq.buffer.DoubleBuffer.)
+                 Object (xfseq.buffer.ObjectBuffer.)
+                 ;; If there's no return hint, use a buffer
+                 ;; of the same type as the incoming seq.
+                 (condp instance? s
+                   xfseq.ILongSeq (xfseq.buffer.LongBuffer.)
+                   xfseq.IDoubleSeq (xfseq.buffer.DoubleBuffer.)
+                   (xfseq.buffer.ObjectBuffer.)))
+
+            input-type (condp instance? s
+                         xfseq.ILongSeq 'long
+                         xfseq.IDoubleSeq 'double
+                         'Object)
+
+            rf (xf buf)
+
+            ana (ana/analyze-primitive-interfaces (ana/interfaces (class rf)))
+            arg-2-type (-> ana (get 2) :args (nth 1) (or 'Object))
+
+            xf-seq-ctor (get xf-seq-ctors [arg-2-type input-type])]
+
+       (xf-seq-ctor buf (xf buf) (seq coll))))))
 
 
 (comment
@@ -284,8 +364,7 @@
   (.analyze (Analyzer. (SimpleVerifier.)) "xfseq/gen/MyOwn" )
   (require '[clojure.java.io :as io])
   (def bytecode
-    (let [cname "xfseq.gen.MyOwn"
-          bytecode (generate-xfseq-simple cname)]
+    (let [[cname bytecode] (generate-xfseq-simple 'double 'Object)]
       (.defineClass ^clojure.lang.DynamicClassLoader
         (deref clojure.lang.Compiler/LOADER)
         cname
@@ -312,7 +391,7 @@
     (.accept cr (jdk.internal.org.objectweb.asm.util.CheckClassAdapter. cn) 0)
 
     (doseq [method-obj (.methods cn)]
-      (let [^MethodNode method method-obj
+      (let [^jdk.internal.org.objectweb.asm.tree.MethodNode method method-obj
             a (jdk.internal.org.objectweb.asm.tree.analysis.Analyzer.
                 (doto (jdk.internal.org.objectweb.asm.tree.analysis.SimpleVerifier.)
                   (.setClassLoader (deref clojure.lang.Compiler/LOADER))))]

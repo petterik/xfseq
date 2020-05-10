@@ -3,27 +3,14 @@
   (:require
     [clojure.core :as clj.core]
     [clojure.set :as set]
-    [clojure.walk :as walk])
+    [clojure.walk :as walk]
+    [xfseq.analyze :as ana]
+    [xfseq.protocols :as p])
   (:import [xfseq ILongSeq IDoubleSeq LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk]
            [clojure.lang Numbers IFn]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
 (set! *warn-on-reflection* true)
-
-(defprotocol IDeconstruct
-  (deconstruct! [this]
-    "Safely returns its parts if they haven't been used
-     already, rendering the object unusable.
-
-     Returns nil if they're already been used.
-
-     This is really only meant to be used with xfseq.core/consume."))
-
-(defprotocol ILongSeqable
-  (long-seq [this]))
-
-(defprotocol IDoubleSeqable
-  (double-seq [this]))
 
 (defn long-chunk [^longs arr ^long off ^long len]
   (let [chunk-length (min len (+ off 32))]
@@ -32,7 +19,7 @@
         (lazy-seq
           (long-chunk arr chunk-length len))))))
 
-(extend-protocol ILongSeqable
+(extend-protocol p/ILongSeqable
   (class (long-array 0))
   (long-seq [arr]
     (let [arr (longs arr)
@@ -47,7 +34,7 @@
         (lazy-seq
           (double-chunk arr chunk-length len))))))
 
-(extend-protocol IDoubleSeqable
+(extend-protocol p/IDoubleSeqable
   (class (double-array 0))
   (double-seq [arr]
     (let [arr (doubles arr)
@@ -55,168 +42,6 @@
       (when (pos? len)
         (double-chunk arr 0 len)))))
 
-
-;;;;;;;;;;;;;;;;;;;
-;; Type analyzing
-;;
-
-(defn interfaces [^Class c]
-  (when c
-    (seq (.getInterfaces c))))
-
-(defn analyze-primitive-interfaces*
-  [interfaces]
-  (into {}
-    (comp
-      (clj.core/filter
-        (fn [^Class interface]
-          (.startsWith (.getCanonicalName interface) "clojure.lang.IFn.")))
-      (clj.core/map
-        (fn [^Class klass]
-          (let [canonical-name (.getCanonicalName klass)
-                interface-name (subs canonical-name (inc (.lastIndexOf canonical-name ".")))
-                letter->type-hint (fn [letter]
-                                    (condp = letter
-                                      \L 'long
-                                      \D 'double
-                                      \O 'Object
-                                      'Object))]
-            {:arity  (dec (count interface-name))
-             :return (letter->type-hint (last interface-name))
-             :class  klass
-             :args   (mapv letter->type-hint (butlast interface-name))})))
-      (clj.core/map (juxt :arity identity)))
-    interfaces))
-
-(def analyze-primitive-interfaces
-  "Given a set of interfaces, datafies the primitive IFn interfaces
-  and returns them in a map by arity."
-  (memoize analyze-primitive-interfaces*))
-
-(def type-hint->letter {'double "D"
-                        'long   "L"
-                        'Object "O"})
-
-(defn hint-map->interface
-  "Takes a datafied description of an interface and returns
-  the interface name matching the description as a symbol."
-  [{:keys [return args]}]
-  (if (every? #{'Object} (cons return args))
-    (symbol "clojure.lang.IFn")
-    (symbol
-      (format "clojure.lang.IFn$%s"
-        (apply str
-          (concat
-            (clj.core/map type-hint->letter args)
-            [(type-hint->letter return)]))))))
-
-(defn is-primitive? [interface-name]
-  (not= "clojure.lang.IFn" (name interface-name)))
-
-(defn- f-replacement [ana-f]
-  {'f (get ana-f 1 {:arity  1
-                    :args   '[Object]
-                    :return 'Object})})
-
-(defn- rf-replacement [ana-rf]
-  {'rf (get ana-rf 2 {:arity  2
-                      :args   '[Object Object]
-                      :return 'Object})})
-
-(defn apply-type-hints
-  "Given datafied rf and an xf-body, return the body with
-  applied type hints from the datafication as well as
-  primitive function invocations where possible.
-
-  Takes a replacement-map with {sym type-analyze} which is
-  used to replace function invocations with primitive
-  invocations.
-
-  This replacement is only applied to the xf-body with arity-2."
-  ([ana-rf xf-body replacement-map]
-   (let [apply-hints (fn [[arg-list & body]]
-                       (let [arg-count (count arg-list)
-                             typed-args (into []
-                                          (map-indexed
-                                            (fn [idx sym]
-                                              (vary-meta sym assoc :tag (get-in ana-rf [arg-count :args idx]))))
-                                          arg-list)]
-                         (cons
-                           (vary-meta typed-args assoc :tag (get-in ana-rf [arg-count :return]))
-                           (cond->> body
-                             (== 2 arg-count)
-                             (walk/postwalk
-                               (fn [x]
-                                 (if (or (list? x) (seq? x))
-                                   (if-some [[sym replacement] (find replacement-map (first x))]
-                                     (let [interface-name (hint-map->interface replacement)]
-                                       (assert (== (:arity replacement) (dec (count x))))
-                                       (list*
-                                         (if (is-primitive? interface-name)
-                                           '.invokePrim
-                                           '.invoke)
-                                         (vary-meta sym assoc :tag interface-name)
-                                         (rest x)))
-                                     x)
-                                   x)))))))]
-     (clj.core/map
-       (fn [inner]
-         (walk/postwalk
-           (fn [x]
-             (if (and (coll? x) (= 'fn (first x)))
-               (cons (first x)
-                 (clj.core/map apply-hints (rest x)))
-               x))
-           inner))
-       xf-body))))
-
-(defn rf-type-analyzer
-  "Analyzer for xf-bodies that only needs to type hint the rf."
-  [xf-body]
-  (fn [rf-bases]
-    (let [ana-rf (analyze-primitive-interfaces rf-bases)]
-      (apply-type-hints
-        ana-rf
-        xf-body
-        (rf-replacement ana-rf)))))
-
-(defn rf+f-type-analyzer
-  "Analyzer for xf-bodies that type hints both rf and f."
-  [xf-body f-sym]
-  (fn [rf-bases f-bases]
-    (let [ana-rf (analyze-primitive-interfaces rf-bases)]
-      (apply-type-hints
-        ana-rf
-        xf-body
-        (merge
-          (rf-replacement ana-rf)
-          (set/rename-keys
-            (f-replacement (analyze-primitive-interfaces f-bases))
-            {'f f-sym}))))))
-
-(defn- xf-factory*
-  [analyzer]
-  (let [analyze+eval (memoize (comp eval analyzer))]
-    ;; These args are the same number of arguments as the ones in
-    ;; the xf-body
-    (fn [& args]
-      (let [new-xf (apply analyze+eval
-                     (clj.core/map (comp interfaces class) args))]
-        (apply new-xf args)))))
-
-(defn xf-factory
-  "Takes a body of an xf and returns a function that takes a
-  reducing function and returns a transducer.
-
-  The analyzing and evaluation is memoized based on the interfaces
-  of the rf."
-  [xf-body]
-  (let [args (-> xf-body second)
-        _ (assert (vector? args))
-        analyzer (case (count args)
-                   1 (rf-type-analyzer xf-body)
-                   2 (rf+f-type-analyzer xf-body (second args)))]
-    (xf-factory* analyzer)))
 
 ;;;;;;;;;;;;;;;;;;;
 ;; XFSeq creation
@@ -404,7 +229,7 @@
                                                       :class clojure.lang.IFn$OLO}
                                          :input-type long})))
 
-  ((test-seq (map long-inc) (long-seq (long-array [1 2 3]))))
+  ((test-seq (map long-inc) (p/long-seq (long-array [1 2 3]))))
 
   (clojure.lang.Reflector/getField xfseq.core.XFSeqStep_LLO "s" false)
 
@@ -458,8 +283,15 @@
   (jdk.internal.org.objectweb.asm.util.ASMifier/main
     (into-array String ["/Users/petter/Github/petterik/xfseq/classes/xfseq/core/XFSeqStep_DD.class"]))
 
-  (jdk.internal.org.objectweb.asm.util.ASMifier/main
-    (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimple.class"]))
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleLong.class"]))
+    (Thread/sleep 100))
+
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleLongLong.class"]))
+    (Thread/sleep 100))
 
   (import '[xfseq.gen MyOwn])
   (let [buf (ObjectBuffer.)]
@@ -515,8 +347,8 @@
   clojure.lang.IFn
   (invoke [this]
     (when-some [s (condp satisfies? coll
-                    ILongSeqable (long-seq coll)
-                    IDoubleSeqable (double-seq coll)
+                    p/ILongSeqable (p/long-seq coll)
+                    p/IDoubleSeqable (p/double-seq coll)
                     (seq coll))]
       (let [buf (case (::return-hint (meta xf))
                   long (LongBuffer.)
@@ -536,7 +368,7 @@
                          IDoubleSeq 'double
                          'Object)
 
-            ana (analyze-primitive-interfaces (interfaces (class rf)))
+            ana (ana/analyze-primitive-interfaces (ana/interfaces (class rf)))
 
             step (init-xfseq-step xf s
                    {:arity-2    (get ana 2 {:args  '[Object Object]
@@ -566,7 +398,7 @@
       (ensure-valid coll "XFSeqHead already deconstructed")
       (nil? xf)))
 
-  IDeconstruct
+  p/IDeconstruct
   (deconstruct! [this]
     (locking this
       (ensure-valid coll "Unable to deconstruct XFSeq more than once")
@@ -589,35 +421,12 @@
   (XFSeqHead. xf coll))
 
 ;;;;;;;;;;;;;;;;
-;; map helpers
-;;
-
-(defn map:type-analyzer
-  "Updates the applied reducing function hints with the types
-  of the mapping function."
-  [xf-body]
-  (fn [rf-bases f-bases]
-    (let [ana-f (analyze-primitive-interfaces f-bases)
-          ana-rf (analyze-primitive-interfaces rf-bases)
-          replacements (-> (merge
-                             (f-replacement ana-f)
-                             (rf-replacement ana-rf))
-                         ;; setting the type of the rf's second argument to the
-                         ;; type of f's return value.
-                         (assoc-in ['rf :args 1] (get-in ana-f [1 :return] 'Object)))]
-      (apply-type-hints
-        ;; map's arity-2 arg1 should have the same type as the f's arg0.
-        (assoc-in ana-rf [2 :args 1] (get-in ana-f [1 :args 0]))
-        xf-body
-        replacements))))
-
-;;;;;;;;;;;;;;;;
 ;; Transducers
 ;;
 
 (def map:xf-factory
-  (xf-factory*
-    (map:type-analyzer
+  (ana/xf-factory*
+    (ana/map:type-analyzer
       '(fn [rf f]
          (fn
            ([] (rf))
@@ -628,8 +437,8 @@
 (defn map
   ([f]
    ^{::return-hint (-> (class f)
-                     (interfaces)
-                     (analyze-primitive-interfaces)
+                     (ana/interfaces)
+                     (ana/analyze-primitive-interfaces)
                      (get-in [1 :return] 'Object))}
    (fn
      [rf]
@@ -638,7 +447,7 @@
    (xf-seq (map f) coll)))
 
 (def filter:xf-factory
-  (xf-factory
+  (ana/xf-factory
     '(fn [rf pred]
        (fn
          ([] (rf))
@@ -657,7 +466,7 @@
    (xf-seq (filter pred) coll)))
 
 (def remove:xf-factory
-  (xf-factory
+  (ana/xf-factory
     '(fn [rf pred]
        (fn
          ([] (rf))
@@ -676,7 +485,7 @@
    (xf-seq (remove pred) coll)))
 
 (def take:xf-factory
-  (xf-factory
+  (ana/xf-factory
     '(fn [rf n]
        (let [nv (volatile! n)]
          (fn
@@ -716,10 +525,10 @@
 
    noun: consumable; a commodity that is intended to be used up relatively quickly."
   [rf init coll]
-  (if-some [[xf coll] (when (satisfies? IDeconstruct coll) (deconstruct! coll))]
+  (if-some [[xf coll] (when (satisfies? p/IDeconstruct coll) (p/deconstruct! coll))]
     (recur (xf rf) init coll)
     ;; TODO: Needs primitive reduce?
-    (let [ana (analyze-primitive-interfaces (interfaces (class rf)))
+    (let [ana (ana/analyze-primitive-interfaces (ana/interfaces (class rf)))
           ret (reduce rf init coll)]
       ;; Call 1 arity if available.
       (cond-> ret
@@ -744,7 +553,7 @@
    performance improvements as it'll not be deconstructable."
   [coll]
   (loop [rf nil coll coll]
-    (if-some [[xf coll] (when (satisfies? IDeconstruct coll) (deconstruct! coll))]
+    (if-some [[xf coll] (when (satisfies? p/IDeconstruct coll) (p/deconstruct! coll))]
       (recur (if (some? rf) (xf rf) xf) coll)
       (if (some? rf)
         (xf-seq rf coll)
@@ -851,7 +660,7 @@
   ;; Fails:
   ;; Would need to enumerate all combinations of LongStep<X>,
   ;; where X = double, long, Object. Should maybe consider code-gen.
-  (map inc (long-seq (long-array (repeat 100 1))))
+  (map inc (p/long-seq (long-array (repeat 100 1))))
 
   ;; Fails:
   ;; "count not supported on this type: XFSeqHead"
@@ -881,6 +690,6 @@
 
 
 
-  (->long-long-xfseq (map long-inc) (long-seq (long-array (repeat (long 1e6) 1))))
+  (->long-long-xfseq (map long-inc) (p/long-seq (long-array (repeat (long 1e6) 1))))
 
   )

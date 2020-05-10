@@ -28,7 +28,7 @@ public class DoubleBuffer extends AFn implements IXFSeqBuffer, IFn.ODO {
     }
 
     public Object invoke(Object a, Object b) {
-        return invokePrim(a, (Long)b);
+        return invokePrim(a, (Double)b);
     }
 
     @Override
