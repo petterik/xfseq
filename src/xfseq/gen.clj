@@ -171,6 +171,75 @@
       (.visitMaxs 2 4)
       (.visitEnd))
 
+    ;; static processChunk method
+    (when (or (= ::mixed chunk-mode) (= ::chunked chunk-mode))
+      (let [labels (repeatedly #(Label.))
+            label #(nth labels %)]
+        (doto (.visitMethod cw (+ Opcodes/ACC_PRIVATE Opcodes/ACC_STATIC) "processChunk"
+                (format "(%s%s%s)%s"
+                  buffer-type
+                  xf-type
+                  ichunk-type
+                  (if check-reduced? "Z" "V"))
+                nil nil)
+          (.visitCode)
+          ;; Store int count = ch.count();
+          (.visitVarInsn Opcodes/ALOAD 2)
+          (invoke-interface clojure.lang.IChunk "count" "()I")
+          (.visitVarInsn Opcodes/ISTORE 3)
+          ;; int i = 0;
+          (.visitInsn Opcodes/ICONST_0)
+          (.visitVarInsn Opcodes/ISTORE 4)
+          (.visitLabel (label 0))
+          (.visitFrame Opcodes/F_APPEND
+            2 (into-array Object [Opcodes/INTEGER Opcodes/INTEGER])
+            0 nil)
+          (.visitVarInsn Opcodes/ILOAD 4)
+          (.visitVarInsn Opcodes/ILOAD 3)
+          ;; Start of for-loop
+          (.visitJumpInsn Opcodes/IF_ICMPGE (label 1))
+          ;; invoke xf and compare against buf if we're checking for reduced.
+          (cond->
+            check-reduced?
+            (.visitVarInsn Opcodes/ALOAD 0))
+          (.visitVarInsn Opcodes/ALOAD 1)
+          (.visitVarInsn Opcodes/ALOAD 0)
+          (.visitVarInsn Opcodes/ALOAD 2)
+          (.visitVarInsn Opcodes/ILOAD 4)
+          (invoke-interface chunk-class
+            (condp = input-sym
+              'long "nthLong"
+              'double "nthDouble"
+              "nth")
+            (format "(I)%s" input-type))
+
+          (invoke-xf)
+          (as-> mv
+            (if check-reduced?
+              (doto mv
+                ;; Return if buf != xf.invoke(...), i.e. reduced.
+                (.visitJumpInsn Opcodes/IF_ACMPEQ (label 2))
+                (.visitInsn Opcodes/ICONST_0)
+                (.visitInsn Opcodes/IRETURN)
+                (.visitLabel (label 2))
+                (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
+              ;; When not checking reduced, just pop the return value from xf from the stack.
+              (.visitInsn mv Opcodes/POP)))
+          (.visitIincInsn 4 1)
+          (.visitJumpInsn Opcodes/GOTO (label 0))
+          (.visitLabel (label 1))
+          (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
+          (as-> mv
+            (if check-reduced?
+              (doto mv
+                (.visitInsn Opcodes/ICONST_1)
+                (.visitInsn Opcodes/IRETURN))
+              (.visitInsn mv Opcodes/RETURN)))
+          (.visitMaxs
+            (cond-> 5 (not check-reduced?) dec)
+            5)
+          (.visitEnd))))
+
     ;; Invoke method
     (let [labels (vec (repeatedly 11 #(Label.)))
             label #(nth labels %)]
@@ -210,87 +279,35 @@
             (or (= ::chunked chunk-mode) (= ::mixed chunk-mode))
             ;; Chunked seq processing
             (doto
+              (.visitVarInsn Opcodes/ALOAD 1)
+              (.visitVarInsn Opcodes/ALOAD 0)
+              (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
               (.visitVarInsn Opcodes/ALOAD 2)
               #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
               ;; Store IChunk ch at index 3
               (invoke-interface clojure.lang.IChunkedSeq "chunkedFirst" (format "()%s" ichunk-type))
               ;; Cast the chunk to the appropriate input type chunk
-              #_(cond->
-                  (not= input-sym 'Object)
-                  (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName chunk-class)))
-
-              (.visitVarInsn Opcodes/ASTORE 3)
-              ;; Store count = ch.count() at 4
-              (.visitVarInsn Opcodes/ALOAD 3)
-              (invoke-interface chunk-class "count" "()I")
-              (.visitVarInsn Opcodes/ISTORE 4)
-              (.visitVarInsn Opcodes/ALOAD 0)
-              (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
-              (.visitVarInsn Opcodes/ASTORE 5)
-              ;; Store i = 0 at index 6
-              (.visitInsn Opcodes/ICONST_0)
-              (.visitVarInsn Opcodes/ISTORE 6)
-
-              ;; Start for-loop for chunked seq
-              (.visitLabel (label 3))
-              (.visitFrame Opcodes/F_FULL
-                7 (into-array Object [iname
-                                      (Type/getInternalName buffer-class)
-                                      (Type/getInternalName seq-class)
-                                      (Type/getInternalName chunk-class)
-                                      Opcodes/INTEGER
-                                      (Type/getInternalName xf-class)
-                                      Opcodes/INTEGER])
-                0 nil)
-              (.visitVarInsn Opcodes/ILOAD 6)
-              (.visitVarInsn Opcodes/ILOAD 4)
-              ;; Jump to label 4 if count is greater or equal to i
-              (.visitJumpInsn Opcodes/IF_ICMPGE (label 4))
-              ;; Load and call xf
+              (.visitMethodInsn Opcodes/INVOKESTATIC iname "processChunk"
+                (format "(%s%s%s)%s"
+                  buffer-type
+                  xf-type
+                  ichunk-type
+                  (if check-reduced? "Z" "V"))
+                false)
               (cond->
                 check-reduced?
-                ;; loading buf so we can compare it to the return of invoking xf.
-                (.visitVarInsn Opcodes/ALOAD 1))
-              (.visitVarInsn Opcodes/ALOAD 5)
-              (.visitVarInsn Opcodes/ALOAD 1)
-              (.visitVarInsn Opcodes/ALOAD 3)
-              (.visitVarInsn Opcodes/ILOAD 6)
-              ;; Invoke nth, possibly primitive.
-              (invoke-interface chunk-class
-                (condp = input-sym
-                  'long "nthLong"
-                  'double "nthDouble"
-                  "nth")
-                (format "(I)%s" input-type))
+                (doto
+                  (.visitJumpInsn Opcodes/IFNE (label 3))
+                  (.visitJumpInsn Opcodes/GOTO (label 1))
+                  (.visitLabel (label 3))
+                  (.visitFrame Opcodes/F_SAME 0 nil 0 nil)))
 
-              (invoke-xf)
-              ;; Continue chunked for-loop if buf == return from xf
-              (as-> mv
-                (if check-reduced?
-                  (doto mv
-                    (.visitJumpInsn Opcodes/IF_ACMPEQ (label 5)) ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 5?
-                    ;; Jump to label 1 if buf != return (end for-loop)
-                    (.visitJumpInsn Opcodes/GOTO (label 1))
-                    ;; Continuing chunked for-loop
-                    (.visitLabel (label 5))
-                    (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
-                  ;; When not checking reduced, just pop the return value from xf from the stack.
-                  (.visitInsn mv Opcodes/POP)))
-              (.visitIincInsn 6 1)
-              (.visitJumpInsn Opcodes/GOTO (label 3))
-              ;; Ending the chunked block by assigning c = ch.chunkedMore()
-              (.visitLabel (label 4))
-              (.visitFrame Opcodes/F_FULL
-                3 (into-array Object [iname
-                                      (Type/getInternalName buffer-class)
-                                      (Type/getInternalName seq-class)])
-                0 nil)
               (.visitVarInsn Opcodes/ALOAD 2)
               #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
               (invoke-interface clojure.lang.IChunkedSeq "chunkedMore" (format "()%s" iseq-type))
               (.visitVarInsn Opcodes/ASTORE 2)
               ;; Jump to checking buffer + return at label 6
-              (.visitJumpInsn Opcodes/GOTO (label 6))))
+              (.visitJumpInsn Opcodes/GOTO (label 4))))
 
           ;; Handling the non-chunked case
           (cond->
@@ -335,7 +352,7 @@
               (.visitVarInsn Opcodes/ASTORE 2)))
 
           ;; Start end of for-loop, checking buffer and returning
-          (.visitLabel (label 6))
+          (.visitLabel (label 4))
           (.visitFrame Opcodes/F_SAME 0 nil 0 nil)
           (.visitVarInsn Opcodes/ALOAD 1)
           (invoke-interface buffer-class "isEmpty" "()Z")
@@ -393,7 +410,7 @@
           (.visitInsn Opcodes/ARETURN)
           (.visitMaxs
             (cond-> 5 (not check-reduced?) dec)
-            (cond-> 7 (= ::dechunked chunk-mode) (-> dec dec dec dec)))
+            (cond-> 3))
           (.visitEnd)))
 
     (.visitEnd cw)
