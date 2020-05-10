@@ -223,11 +223,14 @@
               (.visitInsn Opcodes/ICONST_0)
               ;; Store i = 0 at index 4
               (.visitVarInsn Opcodes/ISTORE 4)
+              (.visitVarInsn Opcodes/ALOAD 0)
+              (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
+              (.visitVarInsn Opcodes/ASTORE 5)
 
               ;; Start for-loop for chunked seq
               (.visitLabel (label 3))
               (.visitFrame Opcodes/F_APPEND
-                2 (into-array Object [(Type/getInternalName chunk-class) Opcodes/INTEGER])
+                3 (into-array Object [(Type/getInternalName chunk-class) Opcodes/INTEGER (Type/getInternalName xf-class)])
                 0 nil)
               (.visitVarInsn Opcodes/ILOAD 4)
               (.visitVarInsn Opcodes/ALOAD 3)
@@ -239,8 +242,7 @@
                 check-reduced?
                 ;; loading buf so we can compare it to the return of invoking xf.
                 (.visitVarInsn Opcodes/ALOAD 1))
-              (.visitVarInsn Opcodes/ALOAD 0)
-              (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
+              (.visitVarInsn Opcodes/ALOAD 5)
               (.visitVarInsn Opcodes/ALOAD 1)
               (.visitVarInsn Opcodes/ALOAD 3)
               (.visitVarInsn Opcodes/ILOAD 4)
@@ -269,7 +271,7 @@
               (.visitJumpInsn Opcodes/GOTO (label 3))
               ;; Ending the chunked block by assigning c = ch.chunkedMore()
               (.visitLabel (label 4))
-              (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
+              (.visitFrame Opcodes/F_CHOP 2 nil 0 nil)
               (.visitVarInsn Opcodes/ALOAD 2)
               #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
               (invoke-interface clojure.lang.IChunkedSeq "chunkedMore" (format "()%s" iseq-type))
@@ -378,7 +380,7 @@
           (.visitInsn Opcodes/ARETURN)
           (.visitMaxs
             (cond-> 5 (not check-reduced?) dec)
-            (cond-> 5 (= ::dechunked chunk-mode) (-> dec dec)))
+            (cond-> 6 (= ::dechunked chunk-mode) (-> dec dec dec)))
           (.visitEnd)))
 
     (.visitEnd cw)
