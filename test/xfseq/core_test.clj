@@ -11,7 +11,13 @@
 
 (comment
 
-  (gen/xf-seq (map inc) (repeat size (Long. 2))))
+  (gen/xf-seq (map inc) (repeat size (Long. 2)))
+  (gen/xf-seq (core/map core/long-inc) (repeat size (Long. 2)))
+
+  (gen/xf-seq (core/map core/double-inc) (object-array (range 10)))
+
+  (meta (core/map core/long-inc))
+  )
 
 (deftest seq-test
   ;; Objects
@@ -35,9 +41,9 @@
           (sequence (map inc) s)
           (core/xf-seq (map inc) s)
           (gen/xf-seq (map inc) s))
-        objs v-objs rang v-rang s-rang arr #_l-arr #_d-arr dc-objs))
+        objs v-objs rang v-rang s-rang arr l-arr d-arr dc-objs))
 
-    #_(let [even? (comp even? int)]
+    (let [even? (comp even? int)]
       (testing "Filtering"
         (are [s]
           (=
@@ -46,7 +52,7 @@
             (gen/xf-seq (filter even?) s))
           objs v-objs rang v-rang s-rang arr l-arr d-arr dc-objs)))
 
-    #_(testing "Reduced"
+    (testing "Reduced"
       (is (< 40 size))
       (are [s]
         (=
@@ -55,11 +61,20 @@
           (gen/xf-seq (take 40) s))
         objs v-objs rang v-rang s-rang arr l-arr d-arr dc-objs))
 
-    #_(testing "Long primitives"
+    (testing "Long primitives"
       (are [s]
         (=
           (sequence (map core/long-inc) s)
           (core/xf-seq (core/map core/long-inc) s)
           (gen/xf-seq (core/map core/long-inc) s))
         objs v-objs rang v-rang s-rang arr l-arr d-arr dc-objs))
+
+    (testing "Double primitives"
+      (are [s]
+        (=
+          (sequence (map core/double-inc) s)
+          (core/xf-seq (core/map core/double-inc) s)
+          (gen/xf-seq (core/map core/double-inc) s))
+        objs v-objs rang v-rang s-rang arr l-arr d-arr dc-objs))
+
     ))

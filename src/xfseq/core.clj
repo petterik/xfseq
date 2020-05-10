@@ -293,6 +293,16 @@
       (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleLongLong.class"]))
     (Thread/sleep 100))
 
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleObjectLong.class"]))
+    (Thread/sleep 100))
+
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleDoubleLong.class"]))
+    (Thread/sleep 100))
+
   (import '[xfseq.gen MyOwn])
   (let [buf (ObjectBuffer.)]
     (clojure.lang.LazySeq. (MyOwn. buf ((map inc) buf) (seq [1 2 3]))))
@@ -566,9 +576,15 @@
 
 (def long-add (fn ^long [^long a ^long b] (clojure.lang.Numbers/add a b)))
 
-(def long-inc (fn ^long [^long l] (clojure.lang.Numbers/add l 1)))
+(def long-inc (fn ^long [^long l] (clojure.lang.Numbers/add l (long 1))))
 
 (def long-even? (fn [^long l] (zero? (clojure.lang.Numbers/and l 1))))
+
+(def double-add (fn ^double [^double a ^double b] (clojure.lang.Numbers/add a b)))
+
+(def double-inc (fn ^double [^double l] (clojure.lang.Numbers/add l (double 1.0))))
+
+(def double-even? (fn [^double l] (long-even? (long (Math/round l)))))
 
 
 (comment
