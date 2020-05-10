@@ -285,6 +285,16 @@
 
   (do
     (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimple.class"]))
+    (Thread/sleep 100))
+
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleNoReduced.class"]))
+    (Thread/sleep 100))
+
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
       (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleLong.class"]))
     (Thread/sleep 100))
 
@@ -446,7 +456,9 @@
 
 (defn map
   ([f]
-   ^{::return-hint (-> (class f)
+   ;; TODO: Add no-reduced to more transducers
+   ^{::no-reduced? true
+     ::return-hint (-> (class f)
                      (ana/interfaces)
                      (ana/analyze-primitive-interfaces)
                      (get-in [1 :return] 'Object))}

@@ -24,8 +24,11 @@
 
 (def type->letter (comp #(Character/toUpperCase ^char %) first str))
 
-(defn generate-xfseq-simple [xf-arg-sym input-sym]
-  (let [class-name (str "xfseq.gen.XFSeqStep_" (type->letter xf-arg-sym) (type->letter input-sym))
+(defn generate-xfseq-simple [xf-arg-sym input-sym check-reduced?]
+  (let [class-name (str "xfseq.gen.XFSeqStep_"
+                     (type->letter xf-arg-sym)
+                     (type->letter input-sym)
+                     (type->letter check-reduced?))
         iname (.replaceAll class-name "\\." "/")
 
         buffer-class xfseq.buffer.IXFSeqBuffer
@@ -225,7 +228,10 @@
           ;; Jump to label 4 if count is greater or equal to i
           (.visitJumpInsn Opcodes/IF_ICMPGE (label 4))
           ;; Load and call xf
-          (.visitVarInsn Opcodes/ALOAD 1)
+          (cond->
+            check-reduced?
+            ;; loading buf so we can compare it to the return of invoking xf.
+            (.visitVarInsn Opcodes/ALOAD 1))
           (.visitVarInsn Opcodes/ALOAD 0)
           (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
           (.visitVarInsn Opcodes/ALOAD 1)
@@ -241,12 +247,17 @@
 
           (invoke-xf)
           ;; Continue chunked for-loop if buf == return from xf
-          (.visitJumpInsn Opcodes/IF_ACMPEQ (label 5))      ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 5?
-          ;; Jump to label 1 if buf != return (end for-loop)
-          (.visitJumpInsn Opcodes/GOTO (label 1))
-          ;; Continuing chunked for-loop
-          (.visitLabel (label 5))
-          (.visitFrame Opcodes/F_SAME 0 nil 0 nil)
+          (as-> mv
+            (if check-reduced?
+              (doto mv
+                (.visitJumpInsn Opcodes/IF_ACMPEQ (label 5)) ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 5?
+                ;; Jump to label 1 if buf != return (end for-loop)
+                (.visitJumpInsn Opcodes/GOTO (label 1))
+                ;; Continuing chunked for-loop
+                (.visitLabel (label 5))
+                (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
+              ;; When not checking reduced, just pop the return value from xf from the stack.
+              (.visitInsn mv Opcodes/POP)))
           (.visitIincInsn 4 1)
           (.visitJumpInsn Opcodes/GOTO (label 3))
           ;; Ending the chunked block by assigning c = ch.chunkedMore()
@@ -263,7 +274,10 @@
           (.visitLabel (label 2))
           (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
           ;; Load and call xf
-          (.visitVarInsn Opcodes/ALOAD 1)
+          (cond->
+            check-reduced?
+            ;; Loading buf to compare with invoke-xf return
+            (.visitVarInsn Opcodes/ALOAD 1))
           (.visitVarInsn Opcodes/ALOAD 0)
           (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
           (.visitVarInsn Opcodes/ALOAD 1)
@@ -278,10 +292,15 @@
               "first")
             (format "()%s" input-type))
           (invoke-xf)
-          (.visitJumpInsn Opcodes/IF_ACMPEQ (label 7))      ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 7?
-          (.visitJumpInsn Opcodes/GOTO (label 1))
-          (.visitLabel (label 7))
-          (.visitFrame Opcodes/F_SAME 0 nil 0 nil)
+          (as-> mv
+            (if check-reduced?
+              (doto mv
+                (.visitJumpInsn Opcodes/IF_ACMPEQ (label 7)) ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 7?
+                (.visitJumpInsn Opcodes/GOTO (label 1))
+                (.visitLabel (label 7))
+                (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
+              ;; When not checking reduced, just pop the return value from xf from the stack.
+              (.visitInsn mv Opcodes/POP)))
           ;; Load and assign ISeq c = c.more()
           (.visitVarInsn Opcodes/ALOAD 2)
           (invoke-interface clojure.lang.ISeq "more" (format "()%s" iseq-type))
@@ -344,15 +363,17 @@
           (.visitLabel (label 10))
           (.visitFrame Opcodes/F_SAME1 0 nil 1 (into-array Object [(Type/getInternalName java.lang.Object)]))
           (.visitInsn Opcodes/ARETURN)
-          (.visitMaxs 5 5)
+          (.visitMaxs
+            (cond-> 5 (not check-reduced?) dec)
+            5)
           (.visitEnd)))
 
     (.visitEnd cw)
 
     [class-name (.toByteArray cw)]))
 
-(defmacro gen-xf-seq-class [arg-type input-type]
-  `(let [[cname# bytes#] (generate-xfseq-simple ~arg-type ~input-type)
+(defmacro gen-xf-seq-class [arg-type input-type check-reduced?]
+  `(let [[cname# bytes#] (generate-xfseq-simple ~arg-type ~input-type ~check-reduced?)
          klass# (.defineClass ^clojure.lang.DynamicClassLoader (deref clojure.lang.Compiler/LOADER)
                   cname#
                   bytes#
@@ -365,11 +386,11 @@
 
 (def xf-seq-ctors
   (into {}
-    (map (fn [[arg-type input-type :as types]]
-           [types (gen-xf-seq-class arg-type input-type)]))
+    (map (fn [[arg-type input-type check-reduced? :as args]]
+           [args (gen-xf-seq-class arg-type input-type check-reduced?)]))
     (let [types ['Object 'long 'double]]
-      (for [a types b types]
-        [a b]))))
+      (for [a types b types check-reduced? [true false]]
+        [a b check-reduced?]))))
 
 (defn xf-seq [xf coll]
   (clojure.lang.LazySeq.
@@ -397,8 +418,9 @@
 
             ana (ana/analyze-primitive-interfaces (ana/interfaces (class rf)))
             arg-2-type (get-in ana [2 :args 1] 'Object)
+            check-reduced? (not (:xfseq.core/no-reduced? (meta xf)))
 
-            xf-seq-ctor (get xf-seq-ctors [arg-2-type input-type])]
+            xf-seq-ctor (get xf-seq-ctors [arg-2-type input-type check-reduced?])]
 
        (xf-seq-ctor buf (xf buf) s)))))
 
