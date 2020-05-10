@@ -24,11 +24,12 @@
 
 (def type->letter (comp #(Character/toUpperCase ^char %) first str))
 
-(defn generate-xfseq-simple [xf-arg-sym input-sym check-reduced?]
+(defn generate-xfseq-simple [xf-arg-sym input-sym check-reduced? chunk-mode]
   (let [class-name (str "xfseq.gen.XFSeqStep_"
                      (type->letter xf-arg-sym)
                      (type->letter input-sym)
-                     (type->letter check-reduced?))
+                     (type->letter check-reduced?)
+                     (type->letter (name chunk-mode)))
         iname (.replaceAll class-name "\\." "/")
 
         buffer-class xfseq.buffer.IXFSeqBuffer
@@ -197,114 +198,126 @@
           ;; Jump to label 1 if ISeq c is nil (end for-loop)
           (.visitVarInsn Opcodes/ALOAD 2)
           (.visitJumpInsn Opcodes/IFNULL (label 1))
-          ;; Check chunked seq
-          (.visitVarInsn Opcodes/ALOAD 2)
-          (.visitTypeInsn Opcodes/INSTANCEOF (Type/getInternalName clojure.lang.IChunkedSeq))
-          ;; Jump to label 2 if ISeq c is not IChunkedSeq
-          (.visitJumpInsn Opcodes/IFEQ (label 2))
-          ;; Chunked seq processing
-          (.visitVarInsn Opcodes/ALOAD 2)
-          #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
-          ;; Store IChunk ch at index 3
-          (invoke-interface clojure.lang.IChunkedSeq "chunkedFirst" (format "()%s" ichunk-type))
-          ;; Cast the chunk to the appropriate input type chunk
-          #_(cond->
-            (not= input-sym 'Object)
-            (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName chunk-class)))
-
-          (.visitVarInsn Opcodes/ASTORE 3)
-          (.visitInsn Opcodes/ICONST_0)
-          ;; Store i = 0 at index 4
-          (.visitVarInsn Opcodes/ISTORE 4)
-
-          ;; Start for-loop for chunked seq
-          (.visitLabel (label 3))
-          (.visitFrame Opcodes/F_APPEND
-            2 (into-array Object [(Type/getInternalName chunk-class) Opcodes/INTEGER])
-            0 nil)
-          (.visitVarInsn Opcodes/ILOAD 4)
-          (.visitVarInsn Opcodes/ALOAD 3)
-          (invoke-interface chunk-class "count" "()I")
-          ;; Jump to label 4 if count is greater or equal to i
-          (.visitJumpInsn Opcodes/IF_ICMPGE (label 4))
-          ;; Load and call xf
           (cond->
-            check-reduced?
-            ;; loading buf so we can compare it to the return of invoking xf.
-            (.visitVarInsn Opcodes/ALOAD 1))
-          (.visitVarInsn Opcodes/ALOAD 0)
-          (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
-          (.visitVarInsn Opcodes/ALOAD 1)
-          (.visitVarInsn Opcodes/ALOAD 3)
-          (.visitVarInsn Opcodes/ILOAD 4)
-          ;; Invoke nth, possibly primitive.
-          (invoke-interface chunk-class
-            (condp = input-sym
-              'long "nthLong"
-              'double "nthDouble"
-              "nth")
-            (format "(I)%s" input-type))
+            (= ::mixed chunk-mode)
+            (doto
+              ;; Check chunked seq
+              (.visitVarInsn Opcodes/ALOAD 2)
+              (.visitTypeInsn Opcodes/INSTANCEOF (Type/getInternalName clojure.lang.IChunkedSeq))
+              ;; Jump to label 2 if ISeq c is not IChunkedSeq
+              (.visitJumpInsn Opcodes/IFEQ (label 2))))
+          (cond->
+            (or (= ::chunked chunk-mode) (= ::mixed chunk-mode))
+            ;; Chunked seq processing
+            (doto
+              (.visitVarInsn Opcodes/ALOAD 2)
+              #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
+              ;; Store IChunk ch at index 3
+              (invoke-interface clojure.lang.IChunkedSeq "chunkedFirst" (format "()%s" ichunk-type))
+              ;; Cast the chunk to the appropriate input type chunk
+              #_(cond->
+                  (not= input-sym 'Object)
+                  (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName chunk-class)))
 
-          (invoke-xf)
-          ;; Continue chunked for-loop if buf == return from xf
-          (as-> mv
-            (if check-reduced?
-              (doto mv
-                (.visitJumpInsn Opcodes/IF_ACMPEQ (label 5)) ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 5?
-                ;; Jump to label 1 if buf != return (end for-loop)
-                (.visitJumpInsn Opcodes/GOTO (label 1))
-                ;; Continuing chunked for-loop
-                (.visitLabel (label 5))
-                (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
-              ;; When not checking reduced, just pop the return value from xf from the stack.
-              (.visitInsn mv Opcodes/POP)))
-          (.visitIincInsn 4 1)
-          (.visitJumpInsn Opcodes/GOTO (label 3))
-          ;; Ending the chunked block by assigning c = ch.chunkedMore()
-          (.visitLabel (label 4))
-          (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
-          (.visitVarInsn Opcodes/ALOAD 2)
-          #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
-          (invoke-interface clojure.lang.IChunkedSeq "chunkedMore" (format "()%s" iseq-type))
-          (.visitVarInsn Opcodes/ASTORE 2)
-          ;; Jump to checking buffer + return at label 6
-          (.visitJumpInsn Opcodes/GOTO (label 6))
+              (.visitVarInsn Opcodes/ASTORE 3)
+              (.visitInsn Opcodes/ICONST_0)
+              ;; Store i = 0 at index 4
+              (.visitVarInsn Opcodes/ISTORE 4)
+
+              ;; Start for-loop for chunked seq
+              (.visitLabel (label 3))
+              (.visitFrame Opcodes/F_APPEND
+                2 (into-array Object [(Type/getInternalName chunk-class) Opcodes/INTEGER])
+                0 nil)
+              (.visitVarInsn Opcodes/ILOAD 4)
+              (.visitVarInsn Opcodes/ALOAD 3)
+              (invoke-interface chunk-class "count" "()I")
+              ;; Jump to label 4 if count is greater or equal to i
+              (.visitJumpInsn Opcodes/IF_ICMPGE (label 4))
+              ;; Load and call xf
+              (cond->
+                check-reduced?
+                ;; loading buf so we can compare it to the return of invoking xf.
+                (.visitVarInsn Opcodes/ALOAD 1))
+              (.visitVarInsn Opcodes/ALOAD 0)
+              (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
+              (.visitVarInsn Opcodes/ALOAD 1)
+              (.visitVarInsn Opcodes/ALOAD 3)
+              (.visitVarInsn Opcodes/ILOAD 4)
+              ;; Invoke nth, possibly primitive.
+              (invoke-interface chunk-class
+                (condp = input-sym
+                  'long "nthLong"
+                  'double "nthDouble"
+                  "nth")
+                (format "(I)%s" input-type))
+
+              (invoke-xf)
+              ;; Continue chunked for-loop if buf == return from xf
+              (as-> mv
+                (if check-reduced?
+                  (doto mv
+                    (.visitJumpInsn Opcodes/IF_ACMPEQ (label 5)) ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 5?
+                    ;; Jump to label 1 if buf != return (end for-loop)
+                    (.visitJumpInsn Opcodes/GOTO (label 1))
+                    ;; Continuing chunked for-loop
+                    (.visitLabel (label 5))
+                    (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
+                  ;; When not checking reduced, just pop the return value from xf from the stack.
+                  (.visitInsn mv Opcodes/POP)))
+              (.visitIincInsn 4 1)
+              (.visitJumpInsn Opcodes/GOTO (label 3))
+              ;; Ending the chunked block by assigning c = ch.chunkedMore()
+              (.visitLabel (label 4))
+              (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
+              (.visitVarInsn Opcodes/ALOAD 2)
+              #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
+              (invoke-interface clojure.lang.IChunkedSeq "chunkedMore" (format "()%s" iseq-type))
+              (.visitVarInsn Opcodes/ASTORE 2)
+              ;; Jump to checking buffer + return at label 6
+              (.visitJumpInsn Opcodes/GOTO (label 6))))
 
           ;; Handling the non-chunked case
-          (.visitLabel (label 2))
-          (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
-          ;; Load and call xf
           (cond->
-            check-reduced?
-            ;; Loading buf to compare with invoke-xf return
-            (.visitVarInsn Opcodes/ALOAD 1))
-          (.visitVarInsn Opcodes/ALOAD 0)
-          (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
-          (.visitVarInsn Opcodes/ALOAD 1)
-          (.visitVarInsn Opcodes/ALOAD 2)
-          #_(cond->
-            (not= 'Object input-sym)
-            (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName input-seq-class)))
-          (invoke-interface input-seq-class
-            (condp = input-sym
-              'long "firstLong"
-              'double "firstDouble"
-              "first")
-            (format "()%s" input-type))
-          (invoke-xf)
-          (as-> mv
-            (if check-reduced?
-              (doto mv
-                (.visitJumpInsn Opcodes/IF_ACMPEQ (label 7)) ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 7?
-                (.visitJumpInsn Opcodes/GOTO (label 1))
-                (.visitLabel (label 7))
-                (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
-              ;; When not checking reduced, just pop the return value from xf from the stack.
-              (.visitInsn mv Opcodes/POP)))
-          ;; Load and assign ISeq c = c.more()
-          (.visitVarInsn Opcodes/ALOAD 2)
-          (invoke-interface clojure.lang.ISeq "more" (format "()%s" iseq-type))
-          (.visitVarInsn Opcodes/ASTORE 2)
+            (= ::mixed chunk-mode)
+            (doto
+              (.visitLabel (label 2))
+              (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)))
+          (cond->
+            (or (= ::dechunked chunk-mode) (= ::mixed chunk-mode))
+            (doto
+              ;; Load and call xf
+              (cond->
+                check-reduced?
+                ;; Loading buf to compare with invoke-xf return
+                (.visitVarInsn Opcodes/ALOAD 1))
+              (.visitVarInsn Opcodes/ALOAD 0)
+              (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
+              (.visitVarInsn Opcodes/ALOAD 1)
+              (.visitVarInsn Opcodes/ALOAD 2)
+              #_(cond->
+                  (not= 'Object input-sym)
+                  (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName input-seq-class)))
+              (invoke-interface input-seq-class
+                (condp = input-sym
+                  'long "firstLong"
+                  'double "firstDouble"
+                  "first")
+                (format "()%s" input-type))
+              (invoke-xf)
+              (as-> mv
+                (if check-reduced?
+                  (doto mv
+                    (.visitJumpInsn Opcodes/IF_ACMPEQ (label 7)) ;; TODO: Can we use IF_ACMPNE for the GOTO and skip label 7?
+                    (.visitJumpInsn Opcodes/GOTO (label 1))
+                    (.visitLabel (label 7))
+                    (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
+                  ;; When not checking reduced, just pop the return value from xf from the stack.
+                  (.visitInsn mv Opcodes/POP)))
+              ;; Load and assign ISeq c = c.more()
+              (.visitVarInsn Opcodes/ALOAD 2)
+              (invoke-interface clojure.lang.ISeq "more" (format "()%s" iseq-type))
+              (.visitVarInsn Opcodes/ASTORE 2)))
 
           ;; Start end of for-loop, checking buffer and returning
           (.visitLabel (label 6))
@@ -365,15 +378,15 @@
           (.visitInsn Opcodes/ARETURN)
           (.visitMaxs
             (cond-> 5 (not check-reduced?) dec)
-            5)
+            (cond-> 5 (= ::dechunked chunk-mode) (-> dec dec)))
           (.visitEnd)))
 
     (.visitEnd cw)
 
     [class-name (.toByteArray cw)]))
 
-(defmacro gen-xf-seq-class [arg-type input-type check-reduced?]
-  `(let [[cname# bytes#] (generate-xfseq-simple ~arg-type ~input-type ~check-reduced?)
+(defmacro gen-xf-seq-class [arg-type input-type check-reduced? chunk-mode]
+  `(let [[cname# bytes#] (generate-xfseq-simple ~arg-type ~input-type ~check-reduced? ~chunk-mode)
          klass# (.defineClass ^clojure.lang.DynamicClassLoader (deref clojure.lang.Compiler/LOADER)
                   cname#
                   bytes#
@@ -386,11 +399,11 @@
 
 (def xf-seq-ctors
   (into {}
-    (map (fn [[arg-type input-type check-reduced? :as args]]
-           [args (gen-xf-seq-class arg-type input-type check-reduced?)]))
+    (map (fn [[arg-type input-type check-reduced? chunk-mode :as args]]
+           [args (gen-xf-seq-class arg-type input-type check-reduced? chunk-mode)]))
     (let [types ['Object 'long 'double]]
-      (for [a types b types check-reduced? [true false]]
-        [a b check-reduced?]))))
+      (for [a types b types check-reduced? [true false] chunk-mode [::mixed ::chunked ::dechunked]]
+        [a b check-reduced? chunk-mode]))))
 
 (defn xf-seq [xf coll]
   (clojure.lang.LazySeq.
@@ -420,7 +433,17 @@
             arg-2-type (get-in ana [2 :args 1] 'Object)
             check-reduced? (not (:xfseq.core/no-reduced? (meta xf)))
 
-            xf-seq-ctor (get xf-seq-ctors [arg-2-type input-type check-reduced?])]
+            chunk-mode (cond
+                         (vector? coll) ::chunked
+                         (set? coll) ::dechunked
+                         (map? coll) ::dechunked
+                         (list? coll) ::dechunked
+                         (instance? clojure.lang.Range coll) ::chunked
+                         (instance? clojure.lang.LongRange coll) ::chunked
+                         (instance? clojure.lang.Repeat coll) ::dechunked
+                         :else ::mixed)
+
+            xf-seq-ctor (get xf-seq-ctors [arg-2-type input-type check-reduced? chunk-mode])]
 
        (xf-seq-ctor buf (xf buf) s)))))
 
@@ -432,7 +455,7 @@
   (.analyze (Analyzer. (SimpleVerifier.)) "xfseq/gen/MyOwn" )
   (require '[clojure.java.io :as io])
   (def bytecode
-    (let [[cname bytecode] (generate-xfseq-simple 'long 'Object)]
+    (let [[cname bytecode] (generate-xfseq-simple 'long 'long false ::chunked)]
       (.defineClass ^clojure.lang.DynamicClassLoader
         (deref clojure.lang.Compiler/LOADER)
         cname
