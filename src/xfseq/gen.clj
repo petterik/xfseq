@@ -201,11 +201,11 @@
           (.visitJumpInsn Opcodes/IFEQ (label 2))
           ;; Chunked seq processing
           (.visitVarInsn Opcodes/ALOAD 2)
-          (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
+          #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
           ;; Store IChunk ch at index 3
           (invoke-interface clojure.lang.IChunkedSeq "chunkedFirst" (format "()%s" ichunk-type))
           ;; Cast the chunk to the appropriate input type chunk
-          (cond->
+          #_(cond->
             (not= input-sym 'Object)
             (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName chunk-class)))
 
@@ -253,7 +253,7 @@
           (.visitLabel (label 4))
           (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)
           (.visitVarInsn Opcodes/ALOAD 2)
-          (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
+          #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
           (invoke-interface clojure.lang.IChunkedSeq "chunkedMore" (format "()%s" iseq-type))
           (.visitVarInsn Opcodes/ASTORE 2)
           ;; Jump to checking buffer + return at label 6
@@ -268,7 +268,7 @@
           (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
           (.visitVarInsn Opcodes/ALOAD 1)
           (.visitVarInsn Opcodes/ALOAD 2)
-          (cond->
+          #_(cond->
             (not= 'Object input-sym)
             (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName input-seq-class)))
           (invoke-interface input-seq-class
@@ -324,7 +324,7 @@
           (.visitVarInsn Opcodes/ALOAD 0)
           (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
           (.visitVarInsn Opcodes/ALOAD 1)
-          (cond->
+          #_(cond->
             ;; Invoking regular IFn at the end and needs(?) a castcheck to that type.
             (not= clojure.lang.IFn xf-class)
             (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IFn)))
