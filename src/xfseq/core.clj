@@ -290,6 +290,21 @@
 
   (do
     (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleDecI.class"]))
+    (Thread/sleep 100))
+
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleChunkedMethod.class"]))
+    (Thread/sleep 100))
+
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
+      (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleChunkedMethodNoReduced.class"]))
+    (Thread/sleep 100))
+
+  (do
+    (jdk.internal.org.objectweb.asm.util.ASMifier/main
       (into-array String ["/Users/petter/Github/petterik/xfseq/classes/production/xfseq/xfseq/XFSeqStepSimpleNoReduced.class"]))
     (Thread/sleep 100))
 

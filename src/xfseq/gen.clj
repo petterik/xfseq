@@ -220,21 +220,30 @@
                   (.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName chunk-class)))
 
               (.visitVarInsn Opcodes/ASTORE 3)
-              (.visitInsn Opcodes/ICONST_0)
-              ;; Store i = 0 at index 4
+              ;; Store count = ch.count() at 4
+              (.visitVarInsn Opcodes/ALOAD 3)
+              (invoke-interface chunk-class "count" "()I")
               (.visitVarInsn Opcodes/ISTORE 4)
               (.visitVarInsn Opcodes/ALOAD 0)
               (.visitFieldInsn Opcodes/GETFIELD iname "xf" xf-type)
               (.visitVarInsn Opcodes/ASTORE 5)
+              ;; Store i = 0 at index 6
+              (.visitInsn Opcodes/ICONST_0)
+              (.visitVarInsn Opcodes/ISTORE 6)
 
               ;; Start for-loop for chunked seq
               (.visitLabel (label 3))
-              (.visitFrame Opcodes/F_APPEND
-                3 (into-array Object [(Type/getInternalName chunk-class) Opcodes/INTEGER (Type/getInternalName xf-class)])
+              (.visitFrame Opcodes/F_FULL
+                7 (into-array Object [iname
+                                      (Type/getInternalName buffer-class)
+                                      (Type/getInternalName seq-class)
+                                      (Type/getInternalName chunk-class)
+                                      Opcodes/INTEGER
+                                      (Type/getInternalName xf-class)
+                                      Opcodes/INTEGER])
                 0 nil)
+              (.visitVarInsn Opcodes/ILOAD 6)
               (.visitVarInsn Opcodes/ILOAD 4)
-              (.visitVarInsn Opcodes/ALOAD 3)
-              (invoke-interface chunk-class "count" "()I")
               ;; Jump to label 4 if count is greater or equal to i
               (.visitJumpInsn Opcodes/IF_ICMPGE (label 4))
               ;; Load and call xf
@@ -245,7 +254,7 @@
               (.visitVarInsn Opcodes/ALOAD 5)
               (.visitVarInsn Opcodes/ALOAD 1)
               (.visitVarInsn Opcodes/ALOAD 3)
-              (.visitVarInsn Opcodes/ILOAD 4)
+              (.visitVarInsn Opcodes/ILOAD 6)
               ;; Invoke nth, possibly primitive.
               (invoke-interface chunk-class
                 (condp = input-sym
@@ -267,11 +276,15 @@
                     (.visitFrame Opcodes/F_SAME 0 nil 0 nil))
                   ;; When not checking reduced, just pop the return value from xf from the stack.
                   (.visitInsn mv Opcodes/POP)))
-              (.visitIincInsn 4 1)
+              (.visitIincInsn 6 1)
               (.visitJumpInsn Opcodes/GOTO (label 3))
               ;; Ending the chunked block by assigning c = ch.chunkedMore()
               (.visitLabel (label 4))
-              (.visitFrame Opcodes/F_CHOP 2 nil 0 nil)
+              (.visitFrame Opcodes/F_FULL
+                3 (into-array Object [iname
+                                      (Type/getInternalName buffer-class)
+                                      (Type/getInternalName seq-class)])
+                0 nil)
               (.visitVarInsn Opcodes/ALOAD 2)
               #_(.visitTypeInsn Opcodes/CHECKCAST (Type/getInternalName clojure.lang.IChunkedSeq))
               (invoke-interface clojure.lang.IChunkedSeq "chunkedMore" (format "()%s" iseq-type))
@@ -284,7 +297,7 @@
             (= ::mixed chunk-mode)
             (doto
               (.visitLabel (label 2))
-              (.visitFrame Opcodes/F_CHOP 1 nil 0 nil)))
+              (.visitFrame Opcodes/F_SAME 0 nil 0 nil)))
           (cond->
             (or (= ::dechunked chunk-mode) (= ::mixed chunk-mode))
             (doto
@@ -380,7 +393,7 @@
           (.visitInsn Opcodes/ARETURN)
           (.visitMaxs
             (cond-> 5 (not check-reduced?) dec)
-            (cond-> 6 (= ::dechunked chunk-mode) (-> dec dec dec)))
+            (cond-> 7 (= ::dechunked chunk-mode) (-> dec dec dec dec)))
           (.visitEnd)))
 
     (.visitEnd cw)
@@ -457,7 +470,7 @@
   (.analyze (Analyzer. (SimpleVerifier.)) "xfseq/gen/MyOwn" )
   (require '[clojure.java.io :as io])
   (def bytecode
-    (let [[cname bytecode] (generate-xfseq-simple 'long 'long false ::chunked)]
+    (let [[cname bytecode] (generate-xfseq-simple 'Object 'Object true ::mixed)]
       (.defineClass ^clojure.lang.DynamicClassLoader
         (deref clojure.lang.Compiler/LOADER)
         cname
@@ -505,5 +518,6 @@
      (with-open [r (io/reader "classes/production/xfseq/xfseq/XFSeqStepSimple.class")]
        (io/copy r baos))
      (.toByteArray baos)))
+  (map)
 
   )
