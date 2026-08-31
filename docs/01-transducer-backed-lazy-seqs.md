@@ -1,6 +1,6 @@
 # Implementation #1: transducer-backed lazy sequences
 
-Status: draft implementation plan  
+Status: draft implementation plan
 Last updated: 2026-08-31
 
 ## Summary
@@ -11,10 +11,13 @@ lazy-sequence engine independently of primitive specialization.
 The first milestone is deliberately narrower than the original experiment:
 
 - Preserve the observable behavior of Clojure's sequence functions.
-- Use one transducer-driven implementation for incremental and chunked input.
+- Use one transducer-backed semantic engine, while allowing a small number of
+  hand-written Java loop shapes when measurements justify specialization for
+  incremental versus chunked input.
 - Return an ordinary, fully compatible lazy sequence.
-- Establish correctness and modern benchmark evidence before adding fusion or
-  primitive paths.
+- Establish semantic equivalence and broad modern performance evidence before
+  adding fusion or primitive paths. Correctness is required, but a replacement
+  that is not faster is not a successful #1 result.
 - Do not use runtime code generation, ASM, type analysis, primitive buffers, or
   custom primitive seq interfaces in this milestone.
 
@@ -43,6 +46,10 @@ upstream proposal.
 6. Produce repeatable JMH results for throughput and allocation.
 7. Leave an implementation that can be evaluated as a small Clojure core
    change rather than requiring adoption of the primitive-specialization work.
+8. Preserve and benchmark the fastest hand-written Java variants as production
+   candidates, not merely as explanatory examples.
+9. Make performance the adoption gate for every candidate core function and
+   important source/workload class.
 
 ## Non-goals
 
@@ -55,8 +62,9 @@ The following are explicitly deferred to Implementation #2 or later work:
   `filter` calls.
 - Replacing every function in `clojure.core` in the first milestone.
 - Parallel processing.
-- Promising that one implementation wins every benchmark. The target is exact
-  behavior, no material regressions, and clear wins in identified workloads.
+- Adopting a shared implementation merely because it is simpler. A candidate
+  that is not materially faster over a broad representative matrix is not
+  interesting as a core replacement.
 
 ## Current implementation: what to retain
 
@@ -79,8 +87,16 @@ Relevant existing code:
 - [`ObjectBuffer`](../src-java/xfseq/buffer/ObjectBuffer.java)
 - The hand-written Java step variants under [`src-java/xfseq`](../src-java/xfseq)
 
-The hand-written Java variants should be treated as design references. The
-generated implementations should not be on the #1 execution path.
+The hand-written Java variants are first-class production candidates. They were
+the fastest implementations found in the original work and must be preserved,
+made semantically equivalent to core, and measured individually. If a new
+implementation eventually wins, retain the fastest repaired hand-written
+variant as a named benchmark reference so the result is compared with the best
+known implementation, not only with an easy baseline.
+
+Runtime-generated `deftype` or ASM implementations remain outside the primary
+#1 product path unless new measurements demonstrate that they are required to
+win. They may remain in the historical benchmark set.
 
 ## Current implementation: confirmed problems
 
@@ -234,6 +250,29 @@ input, so the `take` collection arity must preserve it explicitly.
 
 ## Proposed architecture
 
+### Candidate preservation and selection
+
+Do not collapse the hand-written Java implementations before measuring them.
+Keep repaired, clearly named candidates for at least these loop shapes:
+
+- mixed chunked/dechunked input (`XFSeqStepSimple`);
+- known dechunked input (`XFSeqStepSingleOnly`);
+- known chunked input (`XFSeqStepChunkedOnly`);
+- a no-`Reduced` loop for transforms proven incapable of terminating early;
+- the generic object step in `XFSeqStep.ObjectStep`.
+
+The production design may be one universally fast class, or a small dispatcher
+that selects a loop once at initialization from facts known about the source and
+operation. Avoid paying a per-element `instanceof`, reduced check, interface
+dispatch, or reflective call when the planner can prove it unnecessary. Such a
+proof must be structural; do not infer it by sampling collection values.
+
+Every retained class must first be repaired to the same semantic contract.
+Benchmarking a faster but observably incorrect implementation does not make it
+a production candidate. Preserve the original versions in version control or a
+historical benchmark source set, and compare them with repaired variants when a
+correctness fix has measurable cost.
+
 ### 1. Initial lazy thunk
 
 Introduce an object-only initializer whose sole job is deferred setup:
@@ -256,7 +295,7 @@ transducer-initialization effects, matching the current public engine's order.
 
 ### 2. Stateful step
 
-Use one hand-written Java class for the hot loop:
+Use hand-written Java for the hot loop. The common conceptual state is:
 
 ```text
 ObjectXFSeqStep
@@ -282,6 +321,12 @@ Mutable state is acceptable here because each continuation is guarded by the
 realization semantics of its surrounding `LazySeq`. Add a concurrency test to
 verify that concurrent realization of the same node does not invoke the step
 twice.
+
+Begin with the fastest existing Java loop as the production baseline, then
+measure whether extracting common code, using an abstract base class, or
+selecting specialized chunked/dechunked loops changes throughput, allocation,
+compiled assembly, or inlining. Source-level elegance is secondary to verified
+hot-path performance, provided all variants meet the same public contract.
 
 ### 3. Object buffer
 
@@ -364,7 +409,12 @@ proposal.
 
 - Tag or branch the current research state.
 - Record the existing public API and known failures.
-- Keep the primitive and ASM implementation available for later comparison.
+- Keep every hand-written Java step variant, plus the primitive and ASM
+  implementations, available for later comparison.
+- Give each Java variant a stable benchmark name and record which source and
+  transform shapes it was intended to optimize.
+- Capture a historical performance baseline before semantic repairs, clearly
+  labeling cases whose results are not core-equivalent.
 - Add a short architecture note pointing from the old code to this document.
 
 Exit criterion: the 2020 implementation remains reproducible while the #1 path
@@ -375,7 +425,8 @@ can be simplified aggressively.
 - Upgrade the stable test target to Clojure 1.12.5.
 - Add a Java compilation step using `tools.build` or equivalent.
 - Compile library Java classes to `target/classes`, not an IDE directory.
-- Add `:test`, `:bench`, and optional `:dev` aliases.
+- Add `:test`, `:bench`, optional `:dev`, and explicit direct-linking-on/off
+  benchmark build aliases.
 - Use qualified dependency coordinates.
 - Add a single command that builds Java and runs all tests from a clean clone.
 - Enable reflection warnings and fail CI on unexpected reflection warnings.
@@ -387,7 +438,7 @@ files.
 
 ### Phase 2: object-only engine
 
-- Implement `ObjectXFSeqInit` and one `ObjectXFSeqStep`.
+- Implement `ObjectXFSeqInit` and repair the hand-written object step variants.
 - Refactor or replace `ObjectBuffer` behind a small internal interface.
 - Apply each transducer once.
 - Track the returned accumulator.
@@ -396,9 +447,13 @@ files.
 - Return a real `LazySeq` from `xf-seq`.
 - Remove primitive analysis and runtime class generation from this execution
   path.
+- Benchmark the repaired mixed, single-only, chunked-only, and provably
+  no-reduced loops before selecting a production strategy.
 
 Exit criterion: generic `xf-seq` matches `sequence` for the full differential
-value suite, including empty completion and expanding transforms.
+value suite, including empty completion and expanding transforms, and the
+fastest correct hand-written Java implementation is the performance baseline
+for every later refactor.
 
 ### Phase 3: unary core-function compatibility
 
@@ -440,7 +495,8 @@ Adopt them individually. Each function needs its own semantic trace comparison;
 sharing a transducer engine does not automatically prove equivalent laziness.
 
 Exit criterion: every adopted function passes its direct-core oracle suite and
-has benchmark evidence justifying the change.
+has broad benchmark evidence of a material performance improvement justifying
+the change. A function that is only semantically equivalent is not adopted.
 
 ### Phase 6: optional fusion
 
@@ -592,6 +648,45 @@ Requirements:
   state.
 - Record CPU, OS, architecture, JVM vendor/version, Clojure version, heap
   settings, and GC.
+- Record whether the benchmark caller, xfseq namespaces, and Clojure core jar
+  were compiled with direct linking.
+- Inspect JIT compilation and inlining for representative winners and
+  regressions; do not assume source-level call shape survived optimization.
+
+### Direct-linking matrix
+
+The compiler option is `:direct-linking`, also enabled with:
+
+```text
+-Dclojure.compiler.direct-linking=true
+```
+
+It changes eligible Var calls into direct static function calls. This removes
+Var-root indirection and can enable further JIT inlining. The released Clojure
+core jar has been built with direct linking enabled since Clojure 1.8, so the
+primary upstream decision must use direct linking **on**. Comparing a
+direct-linked xfseq build with a non-direct-linked core build, or the reverse,
+is invalid.
+
+Run two explicitly separate suites:
+
+1. **Release-equivalent (`on`)**: build the benchmark caller and candidate
+   namespaces with direct linking, and use a core jar built the same way. These
+   numbers decide whether a core patch is worthwhile.
+2. **Diagnostic (`off`)**: build core, the candidate, and caller without direct
+   linking. These numbers quantify Var indirection, preserve redefinition for
+   experiments, and reveal whether a win depends on compilation mode. They are
+   reported but not averaged with release-equivalent results.
+
+For the final upstream comparison, build unmodified and patched Clojure jars
+from the same source revision in both modes. Do not simulate a core patch by
+redefining `clojure.core` Vars: already direct-linked calls inside core will not
+observe those redefinitions.
+
+Compile small Clojure benchmark wrapper namespaces in both modes so the public
+call into `clojure.core/map` or `xfseq.core/map` has the intended linkage.
+Additionally use a Java-level microbenchmark that invokes each step engine
+directly to isolate its loop and buffer costs from the public Var-call boundary.
 
 ### Implementations to compare
 
@@ -599,8 +694,15 @@ Requirements:
 2. `sequence` with the equivalent transducer.
 3. `eduction` followed by the relevant sink.
 4. `transduce` for fully eager reductions.
-5. The object-only xfseq engine.
-6. The preserved 2020 implementation as historical context, not as the target.
+5. Each repaired hand-written Java loop variant, including mixed,
+   dechunked-only, chunked-only, and provably no-reduced forms.
+6. The selected object-only xfseq production engine.
+7. Any proposed refactor or generated replacement.
+8. The preserved 2020 implementation as historical context, with known
+   semantic differences labeled.
+
+The fastest correct hand-written variant is the internal baseline a new xfseq
+implementation must beat. Direct core remains the external baseline.
 
 Primitive xfseq results belong in Implementation #2 and must not be mixed into
 claims about the object-only engine.
@@ -618,6 +720,16 @@ Benchmark at least:
 - object array
 - Java iterable
 - `repeat`/`iterate` with an explicit terminating sink
+
+Run each applicable source as empty, singleton, below a chunk boundary, exactly
+at a chunk boundary, just above it, and at steady-state sizes. At minimum:
+
+```text
+0, 1, 4, 8, 31, 32, 33, 64, 1,000, 10,000, 1,000,000
+```
+
+Also vary lazy-source production cost so results distinguish framework overhead
+from source-generation work.
 
 ### Workloads
 
@@ -655,8 +767,9 @@ The primary publication target should use:
 - Java 25
 
 Also run compatibility/performance comparisons on Java 17 and 21. Run the
-current Clojure 1.13 prerelease as forward-looking data, clearly separated from
-stable results.
+installed Java 26.0.2.1 and Clojure 1.13.0-alpha6 as forward-looking data,
+clearly separated from stable results. Record the Clojure library version
+separately from the installed Clojure CLI version.
 
 ### Interpretation
 
@@ -670,6 +783,12 @@ Report raw scores and uncertainty, not only ratios. Flag:
 - regressions isolated to a particular collection or workload.
 
 Do not pool incomparable workloads into one average speedup.
+
+Treat the benchmark space as a matrix of implementation, direct-linking mode,
+JDK, source type, size, operation, selectivity/cardinality, pipeline depth, and
+sink. Automate its generation and retain machine-readable results. The article
+may summarize this matrix, but the upstream decision must expose every cell and
+call out all statistically credible regressions.
 
 ## Acceptance criteria
 
@@ -688,10 +807,18 @@ Do not pool incomparable workloads into one average speedup.
 ### Performance milestone
 
 - Final results come from forked JMH runs with allocation measurements.
-- No supported primary workload shows a repeatable material regression without
-  an understood and accepted tradeoff.
-- At least one important workload shows a clear throughput or allocation win
-  large enough to justify added implementation complexity.
+- Release-equivalent direct-linking-on results are the primary acceptance data.
+- No supported primary matrix cell shows a repeatable material regression. An
+  explanation alone does not make a slower core replacement acceptable.
+- The candidate shows clear throughput and/or allocation wins across enough
+  important source, operation, size, and sink combinations to justify its code
+  and maintenance cost.
+- Where one loop cannot win across source shapes, a cheap one-time dispatch to
+  specialized hand-written loops is evaluated. If neither a universal loop nor
+  dispatch avoids the regression, keep core's existing implementation for that
+  case or do not propose the replacement.
+- Every proposed refactor is compared with the fastest correct hand-written
+  Java variant, which remains in the benchmark suite after selection.
 - Partial consumption is reported separately from full traversal.
 - The benchmark source and raw result files are publishable with the article.
 
@@ -703,13 +830,14 @@ reasonable starting policy is to investigate any repeatable regression above
 
 | Risk | Mitigation |
 |---|---|
-| Shared abstraction is slower than specialized `map`/`filter` loops | Keep the hot loop in one hand-written Java class; measure dispatch and allocation separately. |
+| Shared abstraction is slower than specialized `map`/`filter` loops | Preserve the hand-written variants; evaluate one-time source/operation dispatch and measure its break-even point. |
 | Realization timing changes | Treat event traces as first-class compatibility tests. |
 | Chunk processing over-consumes input | Preserve existing unary chunk semantics; keep multi-source map dechunked. |
 | Expanding transforms retain large arrays | Clear references, reset oversized buffers, and profile retained memory. |
 | Fusion complicates the sequence surface | Keep fusion outside the first milestone and upstream proposal. |
 | Primitive machinery obscures #1 results | Maintain separate namespaces, aliases, tests, and benchmark result groups. |
 | Modern JVM results differ greatly by version | Run Java 17, 21, and 25 and publish the exact runtime matrix. |
+| Direct linking makes library and core results incomparable | AOT-compile symmetric on/off suites; use on for the release decision and off only as separately reported diagnostics. |
 | Upstream scope becomes too large | Propose one internal engine or one migrated function first. |
 
 ## Documentation and article artifacts
@@ -742,7 +870,9 @@ recorded reason:
 1. **Object-only first.** Primitive specialization is excluded from #1.
 2. **A real `LazySeq` result.** Deconstruction does not justify an incomplete
    sequence surface.
-3. **One hand-written hot loop.** No runtime-generated classes in #1.
+3. **Hand-written Java is a production candidate.** Preserve and repair the
+   fastest loop variants; select one loop or a small up-front dispatcher from
+   measurements. No runtime-generated classes are required in #1.
 4. **Core transducers are the source of truth.** Do not duplicate their bodies
    until #2 requires specialization.
 5. **Explicit reduced detection.** Identity comparison is not the baseline
@@ -757,11 +887,17 @@ recorded reason:
    metric, not an afterthought.
 10. **Upstream in small steps.** The first proposal should be independently
     useful and reviewable.
+11. **Performance is a gate.** Semantic equivalence is necessary but does not
+    justify replacing core code that is not materially faster.
+12. **Direct linking on decides.** The release-equivalent suite is primary;
+    direct-linking-off results diagnose indirection and dynamism costs.
 
 ## External references
 
 - [Clojure 1.12.5 `sequence`, `map`, and related source](https://github.com/clojure/clojure/blob/clojure-1.12.5/src/clj/clojure/core.clj)
 - [Clojure stable and development releases](https://clojure.org/releases/downloads)
+- [Clojure compiler options and direct linking](https://clojure.org/reference/compilation#_direct_linking)
+- [Building Clojure without direct linking](https://clojure.org/dev/developing_patches#_building_clojure_without_direct_linking)
 - [OpenJDK Java Microbenchmark Harness](https://github.com/openjdk/jmh)
 - [Criterium](https://github.com/hugoduncan/criterium)
 - [Clojure development workflow](https://clojure.org/dev/workflow)
