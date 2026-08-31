@@ -20,8 +20,7 @@
 (defn sorted-map
   "Build a map with stable key order for diffable EDN output."
   [& kvs]
-  (into (clojure.core/sorted-map)
-        (clojure.core/map vec (partition 2 kvs))))
+  (apply clj/sorted-map kvs))
 
 (defn now-ns [] (System/nanoTime))
 
@@ -274,7 +273,7 @@
   (let [arglists (:arglists (meta v))]
     (sorted-map
       :arglists (pr-str arglists)
-      :arity-counts (vec (clj/map count arglists)))))
+      :arity-counts (clj/mapv count arglists))))
 
 (defn public-arities-observation []
   (sorted-map
@@ -294,11 +293,11 @@
         expression "(require 'xfseq.core)"
         command [java "-cp" clean-classpath "clojure.main" "-e" expression]]
     (try
-      (let [process (doto (ProcessBuilder. (into-array String command))
+      (let [builder (doto (ProcessBuilder. ^java.util.List command)
                       (.redirectErrorStream true))
-            _ (.directory process (io/file (System/getProperty "user.dir")))
+            _ (.directory builder (io/file (System/getProperty "user.dir")))
             started (now-ns)
-            process (.start process)
+            process (.start builder)
             output (slurp (.getInputStream process))
             exit-status (.waitFor process)]
         (sorted-map

@@ -11,10 +11,12 @@
     [clojure.core :as clj]
     [criterium.core :as crit]
     [xfseq.core :as core]
-    [xfseq.gen :as gen])
+    [xfseq.gen :as gen]
+    [xfseq.protocols :as p])
   (:import
     [java.lang ProcessHandle]
     [java.lang.management ManagementFactory]
+    [java.lang.reflect Constructor]
     [java.security MessageDigest]
     [java.nio.file Files]
     [java.io StringWriter]
@@ -32,8 +34,7 @@
 (defn sorted-map
   "Build a map with stable key order for diffable EDN output."
   [& kvs]
-  (into (clojure.core/sorted-map)
-        (clojure.core/map vec (partition 2 kvs))))
+  (apply clj/sorted-map kvs))
 
 (defn now-ns [] (System/nanoTime))
 
@@ -105,32 +106,30 @@
       (clj/map (fn [[key nested]] [key (edn-value nested)]) value))
 
     (vector? value)
-    (vec (clj/map edn-value value))
+    (clj/mapv edn-value value)
 
     (seq? value)
-    (vec (clj/map edn-value value))
+    (clj/mapv edn-value value)
 
     (set? value)
-    (vec (clj/map edn-value (sort value)))
+    (clj/mapv edn-value (sort value))
 
     :else value))
-
-(declare protocol-long-seq protocol-double-seq core-map)
 
 (defn smoke-source
   "Return an actual ISeq with the input and chunk-mode required by a loop."
   [input-type mode]
   (case [input-type mode]
-    [:object :chunked] (seq [(Long. 1) (Long. 2)])
-    [:object :mixed] (seq [(Long. 1) (Long. 2)])
-    [:object :dechunked] (seq (list (Long. 1) (Long. 2)))
+    [:object :chunked] (seq [1 2])
+    [:object :mixed] (seq [1 2])
+    [:object :dechunked] (list 1 2)
 
-    [:long :chunked] (protocol-long-seq (long-array [1 2]))
-    [:long :mixed] (protocol-long-seq (long-array [1 2]))
+    [:long :chunked] (p/long-seq (long-array [1 2]))
+    [:long :mixed] (p/long-seq (long-array [1 2]))
     [:long :dechunked] (LongCons. (long 1) (LongCons. (long 2) nil))
 
-    [:double :chunked] (protocol-double-seq (double-array [1.0 2.0]))
-    [:double :mixed] (protocol-double-seq (double-array [1.0 2.0]))
+    [:double :chunked] (p/double-seq (double-array [1.0 2.0]))
+    [:double :mixed] (p/double-seq (double-array [1.0 2.0]))
     [:double :dechunked] (DoubleCons. (double 1.0) (DoubleCons. (double 2.0) nil))))
 
 (defn buffer-for [argument-type]
@@ -146,7 +145,7 @@
     :double (fn ^double [^double value] value)))
 
 (defn identity-transducer [argument-type]
-  (core-map (identity-function argument-type)))
+  (core/map (identity-function argument-type)))
 
 (defn reducing-function [argument-type buffer]
   ((identity-transducer argument-type) buffer))
@@ -162,24 +161,6 @@
 
 (defn generated-mode-keyword [mode]
   (keyword "xfseq.gen" (name mode)))
-
-(defn resolve-var [namespace-sym var-sym]
-  (or (ns-resolve namespace-sym var-sym)
-      (throw (IllegalStateException.
-               (str "Required namespace var is unavailable: "
-                    namespace-sym "/" var-sym)))))
-
-(defn core-map [& args]
-  (apply (resolve-var 'xfseq.core 'map) args))
-
-(defn core-xf-seq [& args]
-  (apply (resolve-var 'xfseq.core 'xf-seq) args))
-
-(defn protocol-long-seq [value]
-  ((resolve-var 'xfseq.protocols 'long-seq) value))
-
-(defn protocol-double-seq [value]
-  ((resolve-var 'xfseq.protocols 'double-seq) value))
 
 (defn type-letter [type]
   (case type
@@ -356,7 +337,7 @@
     :asm-key-count (count (clj/filter #(= :asm (:kind %)) registry))
     :stable-id-count (count (set (clj/map :stable-id registry)))))
 
-(defn constructor-for [class-name]
+(defn ^Constructor constructor-for [class-name]
   (let [klass (Class/forName class-name)
         constructors (.getConstructors klass)]
     (when-not (= 1 (alength constructors))
@@ -382,13 +363,11 @@
 
 (defn smoke-asm-candidate [candidate]
   (let [{:keys [argument-type input-type source-mode identity-stop?]} candidate
-        gen-ns (find-ns 'xfseq.gen)
-        ctors (var-get (ns-resolve gen-ns 'xf-seq-ctors))
         key [(argument-symbol argument-type)
              (input-symbol input-type)
              identity-stop?
              (generated-mode-keyword source-mode)]
-        ctor (get ctors key)
+        ctor (get gen/xf-seq-ctors key)
         buffer (buffer-for argument-type)
         xf (identity-transducer argument-type)
         reducing-function (xf buffer)
@@ -408,25 +387,24 @@
       (sorted-map :status :not-applicable))))
 
 (defn smoke-registry [registry]
-  (let [smoked (vec (clj/map smoke-candidate registry))
-        unsupported (vec
-                     (clj/map #(sorted-map
-                                 :stable-id (:stable-id %)
-                                 :kind (:kind %)
-                               :source-class (:source-class %)
-                                 :smoke (:constructor-smoke %))
-                               (clj/filter
-                                 #(and (#{:java :asm} (:kind %))
-                                       (not= :ok
-                                             (get-in % [:constructor-smoke :status])))
-                                 smoked)))]
+  (let [smoked (clj/mapv smoke-candidate registry)
+        unsupported
+        (clj/mapv #(sorted-map
+                     :stable-id (:stable-id %)
+                     :kind (:kind %)
+                     :source-class (:source-class %)
+                     :smoke (:constructor-smoke %))
+          (clj/filter
+            #(and (#{:java :asm} (:kind %))
+                  (not= :ok (get-in % [:constructor-smoke :status])))
+            smoked))]
     (sorted-map
       :candidates smoked
       :summary (registry-summary smoked)
       :unsupported-or-unreachable unsupported)))
 
 (defn source-cases []
-  (let [objs (repeat size (Long. 2))
+  (let [objs (repeat size 2)
         v-objs (vec objs)
         rang (range 0 size)
         v-rang (vec rang)
@@ -524,7 +502,7 @@
 
 (defn os-command [command]
   (try
-    (let [builder (doto (ProcessBuilder. (into-array String command))
+    (let [builder (doto (ProcessBuilder. ^java.util.List command)
                     (.redirectErrorStream true))
           _ (.directory builder (io/file (System/getProperty "user.dir")))
           process (.start builder)
@@ -533,17 +511,16 @@
     (catch Throwable _ nil)))
 
 (defn classpath-artifacts []
-  (vec
-    (clj/map
-      (fn [entry]
-        (let [file (io/file entry)]
-          (sorted-map
-            :path entry
-            :kind (if (.isFile file) :file :directory)
-            :sha256 (when (.isFile file) (sha256-file entry)))))
-      (str/split (System/getProperty "java.class.path")
-                 (re-pattern (java.util.regex.Pattern/quote
-                               java.io.File/pathSeparator))))))
+  (clj/mapv
+    (fn [entry]
+      (let [file (io/file entry)]
+        (sorted-map
+          :path entry
+          :kind (if (.isFile file) :file :directory)
+          :sha256 (when (.isFile file) (sha256-file entry)))))
+    (str/split (System/getProperty "java.class.path")
+               (re-pattern (java.util.regex.Pattern/quote
+                             java.io.File/pathSeparator)))))
 
 (defn inferred-command [options]
   "Reconstruct the exact no-wrapper Java invocation when --command is omitted."
@@ -616,7 +593,8 @@
                            :lower-q :upper-q :variance :sample-variance
                            :outlier-variance])))
 
-(defn metadata-with-artifacts [options report-text stdout-text]
+(defn metadata-with-artifacts
+  [options ^String report-text ^String stdout-text]
   (assoc (runtime-metadata options)
     :raw-artifact-sha256
     {:edn (sha256-bytes (.getBytes report-text "UTF-8"))
@@ -628,10 +606,9 @@
 
 (defn run-snapshot! [options]
   (let [started (now-ns)
-        registry* (atom nil)
-        timing* (atom nil)
-        stdout-text
-        (with-out-str
+        stdout (StringWriter.)
+        {:keys [registry timing]}
+        (binding [*out* stdout]
           (println "Phase 0 historical timing snapshot")
           (println "lane=" (:lane options) "fork=" (:fork options))
           ;; Keep namespace-load diagnostics inside the raw stdout artifact.
@@ -648,11 +625,12 @@
                       (print (:stdout-report result))
                       (flush)
                       (dissoc result :stdout-report))))]
-            (reset! registry* registry)
-            (reset! timing* timing)
             (println "registry-summary=" (pr-str (:summary registry)))
             (println "unsupported-or-unreachable="
-                     (pr-str (:unsupported-or-unreachable registry)))))
+                     (pr-str (:unsupported-or-unreachable registry)))
+            {:registry registry
+             :timing timing}))
+        stdout-text (str stdout)
         report-data
         (sorted-map
           :schema-version 1
@@ -662,8 +640,8 @@
                       :lane (:lane options)
                       :fork (:fork options)
                       :candidate-paths candidate-paths
-                      :sources (vec (clj/map #(dissoc % :source :transform)
-                                             (source-cases)))
+                      :sources (clj/mapv #(dissoc % :source :transform)
+                                         (source-cases))
                       :size size
                       :sink :value-discarding-full-reduce
                       :matrix (sorted-map
@@ -704,11 +682,11 @@
                         :progress "disabled")
                       :raw-measures
                       "Each case retains Criterium samples, execution count, mean, quantiles, variance, uncertainty, warmup and GC fields in the structured report."
-                      :candidate-registry-summary (:summary @registry*)
+                      :candidate-registry-summary (:summary registry)
                       :unsupported-or-unreachable
-                      (:unsupported-or-unreachable @registry*))
-          :candidate-registry (:candidates @registry*)
-          :timings @timing*
+                      (:unsupported-or-unreachable registry))
+          :candidate-registry (:candidates registry)
+          :timings timing
           :elapsed-ns (- (now-ns) started))
         report-text (prn-str report-data)
         _ (write-new! (:output options) report-text)

@@ -840,6 +840,7 @@ Verdict: `ready for implementation`.
 | 2026-08-31 | Run / Slice 3 | `/root/phase0_slice3` | Added `dev/xfseq/phase_0_bench.clj`; resolved pinned Clojure 1.10.1/Criterium 0.4.5 dependencies to `/private/tmp`; ran the compatibility smoke first; registered and constructor-smoked 54 ASM keys and 13 hand-written Java IDs; ran six fresh JDK 26 JVMs across both linking lanes with the exact 24-case top-level matrix. | Slice 3 checkpoint complete. Added only the development benchmark runner, the two planned lane directories with 20 raw artifacts (18 timing artifacts plus durable smoke stdout/metadata), and Slice 3 plan evidence/decision/log entries. Every process exited `0`; all six reports have 24 `:ok` timing rows, all 71 registry IDs are unique, all 67 Java/ASM constructor smokes are `:ok`, unsupported/unreachable is `[]`, each timing metadata file's raw EDN/stdout checksums match, and the durable smoke metadata records its raw stdout checksum. Timing remains historical context only. |
 | 2026-08-31 | Run / Slice 4 | `/root/phase0_slice4` | Parsed both semantic reports and all six timing reports; verified the durable Criterium smoke, raw artifact hashes, preservation tag/checksums, registry and constructor coverage, lane labels, and protected paths; added the explicit exit-criteria audit and handoff state. | Slice 4 complete. No history-note correction was needed; `git diff --check` and protected-path checks exit `0`. The implementation/run stage is complete, the plan is `Awaiting final review`, and final semantic/performance/simplicity review remains pending. |
 | 2026-08-31 | Final review | `/root` (`gpt-5.6-sol`, high) | Audited the parent design, original plan, complete Phase 0 diff, both development runners, committed semantic and timing artifacts, all 11 exit criteria, and current protected paths. Recompiled the preserved Java sources in a fresh temporary directory; reran semantic characterization on Clojure 1.10.1 and 1.12.5; reran one complete direct-linking-on 24-case timing fork; rechecked tag identity, tree/archive hashes, remote tag absence, registry coverage, artifact hashes, and diff hygiene. | Final gate passed with no blocker. Corrected one stale history-note sentence that still described constructor smoke as future Phase 0 work. Phase 0 is complete; no production path or later-phase work changed. |
+| 2026-08-31 | Post-review cleanup | `/root` (`gpt-5.6-sol`, high) | Audited every Clojure file changed from `master` after the user identified unnecessary dynamic Var resolution. Replaced all such lookups with direct namespace aliases, removed the unused `core-xf-seq` wrapper and forward declarations, made constructor-smoke setup idiomatic, removed report-building atoms, simplified eager transformations, disambiguated Java interop, and compiled both runners with reflection warnings enabled. | Both semantic lanes and a complete direct-linking-on timing fork passed against the cleaned code. No production or timed expression changed; Phase 0 remains complete. |
 
 ## Final review
 
@@ -858,6 +859,15 @@ smoke belonged to a later Phase 0 slice. The evidence already showed that all
 states the completed result and leaves semantic repair and comparable Java-
 variant timing to Phase 2.
 
+**Medium-impact maintainability issues, fixed after user review:** the benchmark
+runner dynamically resolved Vars that were already required, including one
+unused wrapper and a second dynamic lookup for the ASM constructor registry.
+The same audit found avoidable report-building atoms, ambiguous Java interop
+that compiled reflectively, redundant boxing/sequence forms, `vec` over eager
+`map` results, a rebound `ProcessBuilder` local, and a needlessly indirect
+`sorted-map` implementation. These paths were setup or reporting code rather
+than timed expressions, so the cleanup does not change the benchmark cases.
+
 No semantic, performance-interpretation, structural, build, or scope defect
 remains within Phase 0. The preserved implementation is still knowingly
 incorrect, but Phase 0 labels those differences and does not claim otherwise.
@@ -871,7 +881,10 @@ incorrect, but Phase 0 labels those differences and does not claim otherwise.
 | Semantic rerun | Fresh `javac --release 8` output under `/private/tmp/xfseq-phase0-review.55NyS6` ran both Clojure lanes successfully: 1 test, 46 assertions, 0 failures/errors, nine characterization cases, expected clean-load exit `1`, `XFSeqHead`, two xfseq transducer applications, and missing empty completion output all reproduced. |
 | Committed timing evidence | All six EDN reports parse as 24 successful rows with three samples each, eight sources, three implementations, distinct fork process IDs, the declared linking labels, 71 unique registry IDs, 67 successful Java/ASM constructor smokes, and no unsupported row. Stored raw EDN/stdout hashes agree with metadata. |
 | Fresh timing rerun | One new complete Clojure 1.10.1/JDK 26.0.2.1 direct-linking-on fork under the same temporary review directory produced 24 successful rows, 71 unique IDs, 67 successful constructor smokes, no unsupported row, and matching EDN/stdout SHA-256 values. It remains non-decisional historical context. |
-| Diff hygiene | `git diff --check 1118363..HEAD` passes. The review changed only this plan and the stale history-note sentence. |
+| Post-review Clojure audit | The only Clojure files changed from `master` are `dev/xfseq/phase_0_characterize.clj` and `dev/xfseq/phase_0_bench.clj`. Both load under Clojure 1.10.1 with `*warn-on-reflection*` enabled and emit no reflection warning from either runner. |
+| Cleanup semantic rerun | Fresh Java 8-target output and reports under `/private/tmp/xfseq-phase0-cleanup.vKNNkl` reproduce both Clojure lanes: 1 test, 46 assertions, 0 failures/errors, nine cases, clean-load exit `1`, two xfseq transducer applications, and missing empty completion. Report SHA-256 values are `ca2ba905...d652` and `7dda0274...bd7`. |
+| Cleanup timing rerun | The final cleaned Clojure 1.10.1/JDK 26.0.2.1 direct-linking-on fork at `/private/tmp/xfseq-phase0-cleanup.vKNNkl/bench-final.{edn,stdout,meta.edn}` has 24 successful rows, 71 unique IDs, all 67 Java/ASM constructor smokes successful, and no unsupported row. EDN/stdout SHA-256 values `cb1b7f4a...ca75` and `e07dafba...e914` match metadata; metadata SHA-256 is `191a8312...8b0`. |
+| Diff hygiene | `git diff --check` passes. Post-review edits remain confined to the two development runners, this plan, and the previously corrected history-note sentence; protected paths remain unchanged. |
 
 ### Exit-criterion audit
 
