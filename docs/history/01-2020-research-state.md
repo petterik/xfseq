@@ -193,9 +193,10 @@ old accumulator-identity comparison; it does not claim correct Clojure
 | `java-mixed-double-from-long` | `XFSeqStepSimpleDoubleLong` | Primitive-double reducing call over long input |
 
 The 27 Java files remain reachable at the tag, including every class in this
-registry and the supporting seq/chunk/buffer classes. Constructor smoke and
-comparative timing for these variants are owned by later Phase 0 slices and
-Phase 2; this manifest does not adapt or repair them.
+registry and the supporting seq/chunk/buffer classes. Phase 0 constructor-smoked
+every registered Java and ASM candidate under its declared shape.
+Semantic repair and comparable timing of the hand-written variants remain
+Phase 2 work; this manifest does not adapt or repair them.
 
 ## Known limits of the preserved state
 

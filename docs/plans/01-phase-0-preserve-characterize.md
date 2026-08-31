@@ -1,10 +1,10 @@
 # Implementation #1, Phase 0: preserve and characterize
 
-Status: Awaiting final review
+Status: Complete
 
-Stage: implemented
+Stage: complete
 
-Run stage: complete; final review: pending.
+Run stage: complete; final review: complete.
 
 Last updated: 2026-08-31
 
@@ -839,3 +839,76 @@ Verdict: `ready for implementation`.
 | 2026-08-31 | Run / Slice 2 | `/root/phase0_slice2` | Added `dev/xfseq/phase_0_characterize.clj`; compiled the unchanged tracked Java sources into fresh temporary outputs for exact Clojure 1.10.1 and 1.12.5 lanes; ran the legacy suite, direct-oracle characterization, and clean declared-classpath child require. | Slice 2 checkpoint complete. Added only the development runner, the two semantic EDN reports, and Slice 2 plan evidence/decision/log entries. Both lanes exited `0` with 1 test, 46 assertions, 0 failures, 0 errors; expected historical differences are visibly labeled, and the clean-load child exited `1` with `ClassNotFoundException: xfseq.ILongSeq`. |
 | 2026-08-31 | Run / Slice 3 | `/root/phase0_slice3` | Added `dev/xfseq/phase_0_bench.clj`; resolved pinned Clojure 1.10.1/Criterium 0.4.5 dependencies to `/private/tmp`; ran the compatibility smoke first; registered and constructor-smoked 54 ASM keys and 13 hand-written Java IDs; ran six fresh JDK 26 JVMs across both linking lanes with the exact 24-case top-level matrix. | Slice 3 checkpoint complete. Added only the development benchmark runner, the two planned lane directories with 20 raw artifacts (18 timing artifacts plus durable smoke stdout/metadata), and Slice 3 plan evidence/decision/log entries. Every process exited `0`; all six reports have 24 `:ok` timing rows, all 71 registry IDs are unique, all 67 Java/ASM constructor smokes are `:ok`, unsupported/unreachable is `[]`, each timing metadata file's raw EDN/stdout checksums match, and the durable smoke metadata records its raw stdout checksum. Timing remains historical context only. |
 | 2026-08-31 | Run / Slice 4 | `/root/phase0_slice4` | Parsed both semantic reports and all six timing reports; verified the durable Criterium smoke, raw artifact hashes, preservation tag/checksums, registry and constructor coverage, lane labels, and protected paths; added the explicit exit-criteria audit and handoff state. | Slice 4 complete. No history-note correction was needed; `git diff --check` and protected-path checks exit `0`. The implementation/run stage is complete, the plan is `Awaiting final review`, and final semantic/performance/simplicity review remains pending. |
+| 2026-08-31 | Final review | `/root` (`gpt-5.6-sol`, high) | Audited the parent design, original plan, complete Phase 0 diff, both development runners, committed semantic and timing artifacts, all 11 exit criteria, and current protected paths. Recompiled the preserved Java sources in a fresh temporary directory; reran semantic characterization on Clojure 1.10.1 and 1.12.5; reran one complete direct-linking-on 24-case timing fork; rechecked tag identity, tree/archive hashes, remote tag absence, registry coverage, artifact hashes, and diff hygiene. | Final gate passed with no blocker. Corrected one stale history-note sentence that still described constructor smoke as future Phase 0 work. Phase 0 is complete; no production path or later-phase work changed. |
+
+## Final review
+
+Final gate performed 2026-08-31 against the parent design, original Phase 0
+plan at `1118363`, implementation commit `5cd0310`, the subsequent workflow-
+skill-only diff at `330a32b`, current `HEAD`, both runners, and every committed
+raw report.
+
+### Findings by severity
+
+**Blockers:** none.
+
+**Low impact, fixed during review:** the history note still said constructor
+smoke belonged to a later Phase 0 slice. The evidence already showed that all
+13 Java and 54 ASM candidates had been constructor-smoked, so the note now
+states the completed result and leaves semantic repair and comparable Java-
+variant timing to Phase 2.
+
+No semantic, performance-interpretation, structural, build, or scope defect
+remains within Phase 0. The preserved implementation is still knowingly
+incorrect, but Phase 0 labels those differences and does not claim otherwise.
+
+### Independent validation
+
+| Check | Final-review result |
+|---|---|
+| Complete diff and scope | `1118363..5cd0310` contains only the two development runners, history note, Phase 0 plan/evidence, and raw Phase 0 results. `330a32b` changes only workflow skills. Protected production, Java, legacy test/benchmark, dependency, and legacy-documentation paths still have zero diff from `168ce02...`. |
+| Preservation identity | Annotated tag type and target, 34-file count, tree SHA-256 `d9db3f7d...882b`, and archive SHA-256 `effaac4e...c67` all reproduce. `git ls-remote` still reports no published tag. |
+| Semantic rerun | Fresh `javac --release 8` output under `/private/tmp/xfseq-phase0-review.55NyS6` ran both Clojure lanes successfully: 1 test, 46 assertions, 0 failures/errors, nine characterization cases, expected clean-load exit `1`, `XFSeqHead`, two xfseq transducer applications, and missing empty completion output all reproduced. |
+| Committed timing evidence | All six EDN reports parse as 24 successful rows with three samples each, eight sources, three implementations, distinct fork process IDs, the declared linking labels, 71 unique registry IDs, 67 successful Java/ASM constructor smokes, and no unsupported row. Stored raw EDN/stdout hashes agree with metadata. |
+| Fresh timing rerun | One new complete Clojure 1.10.1/JDK 26.0.2.1 direct-linking-on fork under the same temporary review directory produced 24 successful rows, 71 unique IDs, 67 successful constructor smokes, no unsupported row, and matching EDN/stdout SHA-256 values. It remains non-decisional historical context. |
+| Diff hygiene | `git diff --check 1118363..HEAD` passes. The review changed only this plan and the stale history-note sentence. |
+
+### Exit-criterion audit
+
+All 11 Phase 0 exit criteria remain satisfied. Criteria 1–10 are supported by
+the independently reproduced checks above and the committed raw artifacts.
+Criterion 11 was satisfied by the run-stage handoff at `Awaiting final review`;
+this final gate now advances only this phase to `Complete`. No Phase 1 work was
+started.
+
+### Gate assessment
+
+- **Problem validity:** the phase preserves the only credible historical
+  before-state without expanding the product experiment.
+- **Semantic fidelity:** direct Clojure observations expose the old defects;
+  neither a green value suite nor constructor reachability is presented as
+  equivalence.
+- **Performance validity:** the snapshot is forked and reproducible for its
+  narrow historical purpose, with linking identity and uncertainty recorded.
+  It explicitly lacks allocation and release-decision authority.
+- **Structural simplicity:** one tag, one manifest, and two development-only
+  runners add no product path, dispatch layer, flag, generated cache, or hot-
+  path mechanism.
+- **Hot-path quality:** production and candidate loop code are byte-for-byte
+  unchanged; Phase 0 makes no speed or loop-selection claim.
+- **Upstream fitness:** the result gives future work exact identities, stable
+  names, reproducible failure evidence, and honest benchmark limits.
+
+Verdict: `ready to complete the phase`.
+
+### What matters
+
+- Phase 0 now has an exact, independently verified before-state.
+- The old 46-assertion suite passes, but the recorded implementation is not
+  semantically equivalent to Clojure.
+- Every preserved Java and ASM candidate is named and constructor-reachable.
+- Historical timings are reproducible context, not correctness or release-
+  performance evidence.
+- No production code, dependency, legacy test, benchmark, or later phase was
+  changed.
+- Phase 0 is complete; Phase 1 requires a new `$xfseq-phase` invocation.
