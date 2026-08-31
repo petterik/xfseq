@@ -71,8 +71,9 @@ semantics or enlarge the first upstream proposal.
    - input-chunk-at-a-time processing for chunked input;
    - prompt termination for reduced results;
    - exactly-once transducer completion.
-5. Make the project build and test from a clean checkout on current Clojure and
-   supported JDKs.
+5. Make the project build and test from a clean checkout on Clojure 1.12.5 and
+   the installed Java 26 during the research phases. Broaden JVM compatibility
+   only after the design is correct and promising, before any upstream claim.
 6. Produce repeatable JMH results for throughput and allocation.
 7. Leave an implementation that can be evaluated as a small Clojure core
    change rather than requiring adoption of the primitive-specialization work.
@@ -455,19 +456,21 @@ can be simplified aggressively.
 - Upgrade the stable test target to Clojure 1.12.5.
 - Add a Java compilation step using `tools.build` or equivalent.
 - Compile library Java classes to `target/classes`, not an IDE directory.
-- Add `:test`, `:bench`, optional `:dev`, and explicit direct-linking-on/off
-  benchmark build aliases.
+- Add `:test`, `:bench`, and optional `:dev` aliases. Keep exploratory
+  benchmarks direct-linking-on, matching the released core jar; defer the
+  direct-linking-off diagnostic build until the candidate is promising.
 - Use qualified dependency coordinates.
 - Add a single command that builds Java and runs all tests from a clean clone.
 - Add a pinned clj-kondo task with checked-in configuration over `src`, `dev`,
   and `test`; enable the useful optional linters deliberately, document narrow
-  suppressions, and fail CI on findings.
-- Enable Clojure compiler reflection warnings and fail CI on unexpected
-  reflection warnings. Clj-kondo must enforce that reflection warnings are
-  enabled, but compiler output remains the authority for actual reflection
-  sites.
-- Run CI on Java 17, 21, and 25; optionally include the current Clojure 1.13
-  prerelease as an allowed experimental job.
+  suppressions, and fail the local check on findings.
+- Enable Clojure compiler reflection warnings and fail the local check on
+  unexpected reflection warnings. Clj-kondo must enforce that reflection
+  warnings are enabled, but compiler output remains the authority for actual
+  reflection sites.
+- Validate locally on Clojure 1.12.5 and the installed Java 26.0.2.1. Do not
+  add CI or a JVM/Clojure version matrix until the semantic and performance
+  direction looks promising.
 
 Exit criterion: a fresh checkout can lint, compile, and run tests with one
 documented command, without IDE-produced class files, clj-kondo findings, or
@@ -705,7 +708,7 @@ primary upstream decision must use direct linking **on**. Comparing a
 direct-linked xfseq build with a non-direct-linked core build, or the reverse,
 is invalid.
 
-Run two explicitly separate suites:
+For final release/upstream validation, run two explicitly separate suites:
 
 1. **Release-equivalent (`on`)**: build the benchmark caller and candidate
    namespaces with direct linking, and use a core jar built the same way. These
@@ -798,15 +801,17 @@ class generation or eager source work is not an unconditional improvement.
 
 ### Runtime matrix
 
-The primary publication target should use:
+During the research phases, use one local runtime:
 
 - Clojure 1.12.5
-- Java 25
+- the installed Java 26.0.2.1
 
-Also run compatibility/performance comparisons on Java 17 and 21. Run the
-installed Java 26.0.2.1 and Clojure 1.13.0-alpha6 as forward-looking data,
-clearly separated from stable results. Record the Clojure library version
-separately from the installed Clojure CLI version.
+This local runtime is enough to decide whether the implementation deserves
+further investment. If correctness and local release-direction benchmarks are
+promising, define and run the broader JDK compatibility/performance matrix
+before publication or an upstream proposal. Do not add a Clojure prerelease
+lane now. Always record the Clojure library version separately from the
+installed Clojure CLI version.
 
 ### Interpretation
 
@@ -837,7 +842,9 @@ call out all statistically credible regressions.
 - Transducers are initialized and completed exactly once.
 - Empty completion, reduction, stateful, and expanding transforms pass.
 - Complete `map` arities are implemented.
-- Differential value and realization suites pass on Java 17, 21, and 25.
+- Differential value and realization suites pass on Clojure 1.12.5 and the
+  installed Java 26 during research. A broader supported-JDK matrix is a later
+  upstream-readiness gate, not a Phase 1 prerequisite.
 - Clj-kondo passes over `src`, `dev`, and `test` with checked-in configuration.
 - No unexpected reflection warnings.
 - No runtime code generation on the #1 path.
@@ -874,7 +881,7 @@ reasonable starting policy is to investigate any repeatable regression above
 | Expanding transforms retain large arrays | Clear references, reset oversized buffers, and profile retained memory. |
 | Fusion complicates the sequence surface | Keep fusion outside the first milestone and upstream proposal. |
 | Primitive machinery obscures #1 results | Maintain separate namespaces, aliases, tests, and benchmark result groups. |
-| Modern JVM results differ greatly by version | Run Java 17, 21, and 25 and publish the exact runtime matrix. |
+| Modern JVM results differ greatly by version | Use Java 26 for early decisions; if the candidate is promising, define and publish a broader compatibility matrix before upstream claims. |
 | Direct linking makes library and core results incomparable | AOT-compile symmetric on/off suites; use on for the release decision and off only as separately reported diagnostics. |
 | Upstream scope becomes too large | Propose one internal engine or one migrated function first. |
 
@@ -929,6 +936,9 @@ recorded reason:
     justify replacing core code that is not materially faster.
 12. **Direct linking on decides.** The release-equivalent suite is primary;
     direct-linking-off results diagnose indirection and dynamism costs.
+13. **Compatibility is staged.** Use Clojure 1.12.5 and the installed Java 26
+    while proving the design. Add CI, other JDKs, and prerelease lanes only if
+    the candidate earns the cost, before publication or upstream claims.
 
 ## External references
 
