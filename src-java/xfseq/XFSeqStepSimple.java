@@ -100,6 +100,11 @@ public class XFSeqStepSimple extends AFn {
                         pending = READY;
                         pendingChunkSource = null;
                         pendingChunk = null;
+                        // If completion throws, LazySeq retries its thunk.
+                        // Keep that retry on completion rather than
+                        // reprocessing the input that already returned
+                        // Reduced.
+                        this.s = null;
                         return finish();
                     }
                     acc = next;
@@ -126,6 +131,9 @@ public class XFSeqStepSimple extends AFn {
                 Object next = xf.invoke(acc, item.first());
                 if (RT.isReduced(next)) {
                     this.accumulator = ((Reduced) next).deref();
+                    // See the chunked path above: a completion retry must
+                    // not process the terminal input a second time.
+                    this.s = null;
                     return finish();
                 }
                 acc = next;

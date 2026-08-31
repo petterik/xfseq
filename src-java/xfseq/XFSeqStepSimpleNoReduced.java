@@ -1,41 +1,18 @@
 package xfseq;
 
-import clojure.lang.*;
+import clojure.lang.IFn;
+import clojure.lang.ISeq;
 import xfseq.buffer.IXFSeqBuffer;
 
-public class XFSeqStepSimpleNoReduced extends AFn {
-
-    private final IXFSeqBuffer buf;
-    private final IFn xf;
-    private ISeq s;
+/**
+ * Mixed object candidate for a structurally non-reducing transducer.
+ *
+ * <p>The no-reduced precondition is enforced by the test/benchmark adapter;
+ * this class intentionally has no public xf-seq dispatch path.</p>
+ */
+public class XFSeqStepSimpleNoReduced extends XFSeqObjectStep {
 
     public XFSeqStepSimpleNoReduced(IXFSeqBuffer buf, IFn xf, ISeq s) {
-        this.buf = buf;
-        this.xf = xf;
-        this.s = s;
-    }
-
-    public Object invoke() {
-        IXFSeqBuffer buf = this.buf;
-        for (ISeq c = this.s.seq(); c != null; c = c.seq()) {
-            if (c instanceof IChunkedSeq) {
-                IChunk ch = ((IChunkedSeq) c).chunkedFirst();
-                for(int i = 0; i < ch.count(); i++) {
-                    xf.invoke(buf, ch.nth(i));
-                }
-                c = ((IChunkedSeq) c).chunkedMore();
-            } else {
-                xf.invoke(buf, c.first());
-                c = c.more();
-            }
-
-            if (!buf.isEmpty()) {
-                this.s = c;
-                return buf.toSeq(new LazySeq(this));
-            }
-        }
-
-        xf.invoke(buf);
-        return buf.isEmpty() ? null : buf.toTail();
+        super(buf, xf, s, Shape.MIXED, false);
     }
 }

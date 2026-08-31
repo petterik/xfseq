@@ -1,9 +1,11 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Implementation in progress (Slice 1 checkpointed; Slice 2 not started)
+Status: Implementation in progress (Slices 1–2 accepted; Slice 2 checkpoint
+commit pending)
 
 Stage: plan complete; pre-implementation review passed; Slice 1 implemented,
-accepted, and checkpointed; Slice 2 not started
+accepted, and checkpointed; Slice 2 implemented and accepted by parent
+validation; checkpoint commit pending
 
 Last updated: 2026-09-01
 
@@ -887,6 +889,71 @@ this slice.
 | 2026-08-31 | Remove generated `xfseq.core` step setup and `XFSeqHead` from the active source. | Generic object execution must not load or select runtime-generated/primitive steps; historical research remains in its preserved sources. |
 | 2026-09-01 | Persist per-item/chunk progress while a retained step node is retried. | A step/source exception after partial buffering must resume at the failed input without duplicating values already buffered in that node. |
 
+## Slice 2 implementation evidence
+
+Slice 2 keeps all seven retained object class identities and gives the six
+remaining candidates one shared `XFSeqObjectStep` state/completion
+implementation. The canonical mixed `XFSeqStepSimple` is re-audited through
+the same contract suite. Reduced-aware mixed,
+dechunked, and chunked candidates now preserve ordinary accumulator returns,
+unwrap `Reduced` once, defer source-tail probing until a continuation is forced,
+complete once, and resume a partially processed chunk at the failed input on a
+`LazySeq` retry. No-reduced candidates use the same state machine with the
+step-level `Reduced` check disabled; they are not reachable from `xf-seq`.
+`XFSeqStep.ObjectStep` delegates to the shared object implementation while the
+preserved `LongStep` and `DoubleStep` code is unchanged. The common completion
+retry test also found and repaired one narrow Slice 1 defect in
+`XFSeqStepSimple`: after a reduced step whose completion throws, retry now
+retries completion without reprocessing the terminal input.
+
+Test/benchmark-only adapters in
+[`test/xfseq/phase_2_candidates.clj`](../../test/xfseq/phase_2_candidates.clj)
+validate finite specialized source shapes before construction and require an
+adapter-owned `NonReducingOperation` proof for no-reduced candidates. The same
+namespace records seven repaired v2 IDs and an explicit old-to-new mapping;
+Phase 0 IDs remain historical. Candidate contract tests are in
+[`test/xfseq/object_candidate_test.clj`](../../test/xfseq/object_candidate_test.clj)
+and re-audit `XFSeqStepSimple` with every retained object candidate. The
+reduced-aware matrix uses fresh dechunked, chunked, dechunked-to-chunked, and
+chunked-to-dechunked fixtures at all 16 required sizes (`0,1,2,3,4,5,7,8,9,
+31,32,33,63,64,65,1000`) and eight representative transducer families. It
+covers 1,280 applicable candidate/shape/size/transform cells and compares
+each candidate with both `sequence` and `transduce` (2,560 oracle assertions).
+Mixed candidates exercise both tail directions explicitly. No-reduced
+candidates use an adapter-owned expanding operation over 1,000 inputs and
+assert output order, 2,000 outputs, and the 32-element chunk bound. Every
+candidate is directly reinvoked after terminal realization to verify that
+completion and source steps are not repeated. A minimal external-package Java
+probe also compiled a call to inherited `invoke()` while `XFSeqObjectStep`
+remained package-private, so no public support-class expansion was needed.
+
+### Slice 2 validation evidence
+
+| Check | Result |
+|---|---|
+| Candidate-focused suite | `clojure -Srepro -M:dev -e "(require 'xfseq.object-candidate-test) (println (select-keys (clojure.test/run-tests 'xfseq.object-candidate-test) [:test :pass :fail :error])) (shutdown-agents)"` exit 0; 15 tests / 2,726 assertions / 0 failures / 0 errors. |
+| Differential evidence | 1,280 fresh candidate/shape/size/transform cells; 2,560 `sequence`/`transduce` oracle assertions, including all 16 required sizes and both mixed-tail directions. |
+| Full local check | `clojure -Srepro -T:build check` exit 0; lint 0/0, compiler reflection clean, 29 tests / 2,906 assertions / 0 failures / 0 errors. |
+| Diff hygiene | `git diff --check` passed. |
+| Java compatibility | `clojure -Srepro -T:build javac` exit 0 with existing `--release 8` target. |
+| External Java accessibility | Temporary external-package `Phase2CandidateProbe` calling `XFSeqStepSimpleNoReduced.invoke()` compiled with `javac -cp target/classes:<clojure-1.12.5.jar>` exit 0; probe source removed and production support class remains package-private. |
+| Scope | No public dispatch, JMH harness, primitive/ASM, fusion, or Phase 3+ changes; `LongStep`/`DoubleStep` sources remain behaviorally untouched. |
+| Performance evidence | No throughput/allocation claim; JMH is owned by Slices 3–4. |
+
+### Slice 2 decisions
+
+| Date | Decision | Reason |
+|---|---|---|
+| 2026-09-01 | Share state, completion, and retry handling through `XFSeqObjectStep` across the six new candidates and `ObjectStep`. | The contract is identical; one implementation keeps accumulator, `Reduced`, completion, and buffer ownership behavior auditable before JMH. |
+| 2026-09-01 | Defer `more`/`chunkedMore` until an output continuation is forced. | Specialized candidates must not over-read lazy tails merely to expose a prefix; pending state also preserves retry boundaries. |
+| 2026-09-01 | Validate specialized finite source shape in a test/benchmark adapter and fail before xform construction or casts. | `IChunkedSeq` describes a node, not an arbitrary tail; production `xf-seq` remains mixed and source-lazy. |
+| 2026-09-01 | Require adapter-owned non-reducing operations for no-reduced candidates. | Caller metadata or an arbitrary transducer cannot prove that `Reduced` is impossible. |
+| 2026-09-01 | Keep `XFSeqStep.ObjectStep` as a subclass with a delegate and leave primitive siblings unchanged. | Preserves the historical class identity and primitive boundary while avoiding a second object state machine. |
+| 2026-09-01 | Set the canonical mixed step's source to terminal state before completion after `Reduced`. | A completion exception is retryable under `LazySeq`; retrying the terminal step duplicated buffered output and violated the shared candidate contract. |
+| 2026-09-01 | Use fresh source fixtures for each `sequence`, `transduce`, and candidate observation in the 1,280-cell differential matrix. | Consumable/lazy sources can otherwise make an apparently differential check compare different source states; both mixed tail directions are now exercised. |
+| 2026-09-01 | Make expansion and completion-counting operations adapter-owned no-reduced proofs. | The no-reduced candidates must demonstrate structural non-reduction, expanded order/chunk bounds, and terminal idempotence without accepting arbitrary caller metadata. |
+| 2026-09-01 | Keep `XFSeqObjectStep` package-private after an external Java compile probe. | Public candidate subclasses can be called directly from another package through inherited `invoke()`; widening the shared support class would add API surface without evidence. |
+
 ## Plan review findings
 
 ### Review 1: semantics, scope, and measurement
@@ -1026,3 +1093,6 @@ Verdict: `ready for implementation`.
 | 2026-09-01 | Slice 1 verification | `/root/phase2_slice1` | Recompiled the Java step after adding retained-node retry progress and reran focused/full checks plus diff hygiene. | Focused and full checks pass: 14 tests / 180 assertions / 0 failures / 0 errors; parent inspection and checkpoint commit pending; no JMH claim. |
 | 2026-09-01 | Slice 1 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected the complete diff and mutable state transitions; checked the object-only scope and preserved research paths; independently ran focused tests, the full check, diff hygiene, and a 2,016-cell differential probe. | Accepted for checkpoint commit; no blocking semantic, scope, build, or hygiene finding. |
 | 2026-09-01 | Slice 1 checkpoint | `/root` (`gpt-5.6-sol`, medium) | Committed the accepted Slice 1 code, tests, evidence, and plan updates without pushing. | `10e19e2bcccbf59dbe3d2f95e30d7d8134d749f2`; Slice 2 may start. |
+| 2026-09-01 | Implementation Slice 2 | `/root/phase2_slice2` | Repaired the six retained object candidate classes through shared `XFSeqObjectStep` state/completion code; delegated `ObjectStep` while preserving primitive siblings; fixed the demonstrated reduced-completion retry defect in canonical `XFSeqStepSimple`; added test/benchmark-only shape/proof adapters, v2 registry/mapping, and candidate contract tests. | Initial candidate suite passed 11 tests / 117 assertions; parent-check follow-up expanded it to 15 / 2,726 and the full check to 29 / 2,906; Java accessibility probe passed; parent review and checkpoint commit pending; no JMH claim. |
+| 2026-09-01 | Slice 2 parent-check follow-up | `/root/phase2_slice2` | Added fresh 16-size / eight-transform differential coverage for all applicable reduced-aware candidates, explicit dechunked-to-chunked and chunked-to-dechunked mixed tails, adapter-owned expanding no-reduced coverage, and terminal direct-reinvoke checks. | Candidate suite 15 tests / 2,726 assertions; full check 29 / 2,906; lint/reflection, Java 8 javac, diff hygiene, and external inherited-`invoke` probe all passed; awaiting parent review/checkpoint, no JMH claim. |
+| 2026-09-01 | Slice 2 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected the shared state machine, canonical retry fix, primitive-sibling boundary, adapters, registry, and complete expanded candidate suite; independently reran focused tests, the full check, and diff hygiene. | Accepted for checkpoint commit; 15 / 2,726 focused and 29 / 2,906 full assertions pass with no semantic, scope, build, reflection, lint, or hygiene blocker. |
