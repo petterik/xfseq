@@ -1,11 +1,11 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Ready for implementation
+Status: Implementation in progress (Slice 1 accepted; checkpoint commit pending)
 
-Stage: plan complete; pre-implementation review passed; implementation has not
-started
+Stage: plan complete; pre-implementation review passed; Slice 1 implemented and
+accepted by parent validation; checkpoint commit pending
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 Parent design: [`docs/01-transducer-backed-lazy-seqs.md`](../01-transducer-backed-lazy-seqs.md)
 
@@ -807,6 +807,9 @@ adding machinery.
 | 2026-08-31 | Add JMH 1.37 in Phase 2 and run only the symmetric direct-linking-on local lane. | Correct loop selection needs allocation-aware forked data; an off lane and other JDKs are premature. |
 | 2026-08-31 | Specialization must clear a 5% benefit / 3% regression rule and have a whole-source proof. | Small noisy wins do not justify core-level branches or duplicated loops. |
 | 2026-08-31 | Leave `consume`, `drain`, primitive sources, and ASM outside the repair. | They are separate phase/design questions and cannot justify an incomplete ordinary seq. |
+| 2026-08-31 | Slice 1 routes generic `xf-seq` through `LazySeq(ObjectXFSeqInit)` and the repaired `XFSeqStepSimple`; generated step setup is removed from `xfseq.core`. | One deferred initializer and one mixed reduced-aware loop satisfy the provisional semantic boundary without a second engine. |
+| 2026-08-31 | Slice 1 keeps `ObjectBuffer` object-backed while inheriting primitive IFn entry points invisibly to the analyzer. | Existing unary wrapper definitions still need primitive reducing-function casts; object-only filters must remain safe for arbitrary values. |
+| 2026-08-31 | Slice 1 records correctness and build evidence only; no performance selection is made. | JMH and allocation evidence are owned by Slices 3–4 after all candidate contracts are repaired. |
 
 ## Planning validation evidence
 
@@ -823,6 +826,66 @@ adding machinery.
 | Historical semantic report | Phase 0 1.12.5 EDN records `XFSeqHead`, two xform applications, missing empty completion, and the green but narrow 46-assertion suite. |
 
 These are planning facts, not Phase 2 completion evidence or performance data.
+
+## Slice 1 implementation evidence
+
+Slice 1 uses one canonical object path:
+
+```text
+xfseq.core/xf-seq
+  -> LazySeq(ObjectXFSeqInit)
+  -> ObjectBuffer + transformed reducing function
+  -> XFSeqStepSimple (mixed, explicit Reduced-aware state)
+```
+
+`ObjectXFSeqInit` keeps source sequencing, buffer creation, transducer
+application, and empty-input completion inside the initial lazy thunk. The
+step stores every ordinary returned accumulator, unwraps `Reduced` once, and
+completes only after natural exhaustion or terminal reduction. `ObjectBuffer`
+now routes terminal output through the bounded chunking path, checks growth
+before multiplication, clears transferred slots, and resets exposed/oversized
+working arrays. Its inherited primitive IFn entry points remain available for
+the existing type-aware unary wrappers while `getInterfaces()` still reports
+only the object buffer contract to the analyzer; storage and the public engine
+remain object-only.
+
+The old generated-step setup, `XFSeqHead`, and primitive selection were removed
+from the active `xfseq.core` path. The preserved hand-written primitive,
+alternate object, and historical generated sources remain present and are not
+reachable from generic `xf-seq`. Public unary wrapper definitions and fusion
+code were not changed.
+
+Deterministic Slice 1 tests are in
+[`test/xfseq/object_engine_test.clj`](../../test/xfseq/object_engine_test.clj).
+They cover construction/initialization order, empty and terminal completion,
+returned accumulators, explicit reduction, chunked/dechunked/mixed-tail input,
+expansion and output chunk bounds, buffer ownership/slot clearing, the
+ordinary `LazySeq` surface, exception retry behavior, and concurrent forcing
+of one node. Alternate-candidate adapters and benchmark harnesses are outside
+this slice.
+
+### Slice 1 validation evidence
+
+| Check | Result |
+|---|---|
+| Recorded pre-change baseline | `clojure -Srepro -T:build check` exit 0; lint 0/0; reflection clean; 1 test / 46 assertions / 0 failures / 0 errors. |
+| Focused object-engine suite | `clojure -Srepro -M:test` exit 0; 14 tests / 180 assertions / 0 failures / 0 errors. |
+| Full local check after Slice 1 | `clojure -Srepro -T:build check` exit 0; lint 0/0; reflection clean; 14 tests / 180 assertions / 0 failures / 0 errors. |
+| Parent differential probe | 2,016 source/size/xform cells across vector, list, and range sources; boundary sizes through 1,000; map, filter, keep, take, mapcat, partition-all, and composed transforms all matched Clojure 1.12.5 `sequence`. |
+| Diff hygiene | `git diff --check` passed. |
+| Active generated path | Fresh `target/classes` contains `ObjectXFSeqInit.class` and repaired Java candidates; no `xfseq.core` generated step initialization runs (the prior `classes:` load output is absent). |
+| Performance readiness | Java compiles with the existing `--release 8` build; no throughput or allocation claim is made. JMH belongs to Slices 3–4. |
+
+### Slice 1 decisions
+
+| Date | Decision | Reason |
+|---|---|---|
+| 2026-08-31 | Use `LazySeq(ObjectXFSeqInit)` directly and make `XFSeqStepSimple` the sole provisional mixed object loop. | It gives the standard cached sequence surface with one deferred setup and no second canonical engine. |
+| 2026-08-31 | Preserve the actual returned accumulator and use `RT.isReduced`/one `Reduced.deref()` in the mixed step. | Identity comparison silently loses ordinary accumulator changes and can miss valid terminal results. |
+| 2026-08-31 | Have `ObjectBuffer.toTail()` use the same bounded `toSeq` path as continuations. | Terminal expansion must preserve order without exposing a chunk above 32 or retaining the mutable working array. |
+| 2026-08-31 | Add inherited primitive IFn bridge methods without exposing primitive interfaces directly from `ObjectBuffer`. | Existing unary wrapper definitions still produce primitive-aware reducing-function casts; direct interface exposure would make ordinary object filters cast arbitrary values. |
+| 2026-08-31 | Remove generated `xfseq.core` step setup and `XFSeqHead` from the active source. | Generic object execution must not load or select runtime-generated/primitive steps; historical research remains in its preserved sources. |
+| 2026-09-01 | Persist per-item/chunk progress while a retained step node is retried. | A step/source exception after partial buffering must resume at the failed input without duplicating values already buffered in that node. |
 
 ## Plan review findings
 
@@ -959,3 +1022,6 @@ Verdict: `ready for implementation`.
 | 2026-08-31 | Plan review 1 | `/root` (`gpt-5.6-sol`, high) | Reviewed semantics, scope, candidate preservation, buffer boundary, exception behavior, environment identity, and selection evidence. | Revised six confident issues; retained three evidence-gated uncertainties with one-loop fallbacks. |
 | 2026-08-31 | Plan review 2 | `/root` (`gpt-5.6-sol`, high) | Rechecked the revised oracle split, phase boundary, sequential ownership, performance symmetry, and unresolved decisions. | Pass; no unresolved finding or user decision. |
 | 2026-08-31 | Pre-implementation review | `/root` (`gpt-5.6-sol`, high) | Applied the strict problem, semantic, performance, simplicity, hot-path, and upstream gate. | Fixed the redundant-loop ambiguity, isolated the shared object candidate from primitive siblings, required fresh consumable fixtures; verdict `ready for implementation`. |
+| 2026-08-31 | Implementation Slice 1 | `/root/phase2_slice1` | Added deferred object initializer, repaired mixed reduced-aware step, bounded/ownership-safe object buffer, direct LazySeq boundary, removed active generated-step setup, and deterministic object-engine tests. | Full local check passes: 14 tests / 180 assertions / 0 failures / 0 errors; parent inspection and checkpoint commit pending; no JMH claim. |
+| 2026-09-01 | Slice 1 verification | `/root/phase2_slice1` | Recompiled the Java step after adding retained-node retry progress and reran focused/full checks plus diff hygiene. | Focused and full checks pass: 14 tests / 180 assertions / 0 failures / 0 errors; parent inspection and checkpoint commit pending; no JMH claim. |
+| 2026-09-01 | Slice 1 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected the complete diff and mutable state transitions; checked the object-only scope and preserved research paths; independently ran focused tests, the full check, diff hygiene, and a 2,016-cell differential probe. | Accepted for checkpoint commit; no blocking semantic, scope, build, or hygiene finding. |

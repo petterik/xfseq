@@ -2,9 +2,31 @@ package xfseq.buffer;
 
 import clojure.lang.*;
 
-public class ObjectBuffer extends AFn implements IXFSeqBuffer {
+/*
+ * Keep the primitive IFn entry points available to a type-aware transducer
+ * without exposing those interfaces through ObjectBuffer.getInterfaces().
+ * The existing analyzer uses the latter to choose a reducing-function shape;
+ * reporting this buffer as primitive there would make an ordinary object
+ * filter cast arbitrary values to numbers.  The object engine itself still
+ * stores every value in the ObjectBuffer.
+ */
+class ObjectBufferIFn extends AFn implements IFn.OLO, IFn.ODO {
+
+    @Override
+    public Object invokePrim(Object a, long b) {
+        return invoke(a, Long.valueOf(b));
+    }
+
+    @Override
+    public Object invokePrim(Object a, double b) {
+        return invoke(a, Double.valueOf(b));
+    }
+}
+
+public class ObjectBuffer extends ObjectBufferIFn implements IXFSeqBuffer {
 
     private static final Object[] NULLS = new Object[32];
+    private static final int MAX_CAPACITY = Integer.MAX_VALUE - 8;
 
     private Object[] arr;
     private int idx;
@@ -22,9 +44,14 @@ public class ObjectBuffer extends AFn implements IXFSeqBuffer {
     @Override
     public Object invoke(Object a, Object b) {
         if (idx == capacity) {
-            capacity *= capacity < 32 ? 4 : 2;
-            Object[] larger = new Object[capacity];
+            int growth = capacity < 32 ? 4 : 2;
+            if (capacity > MAX_CAPACITY / growth) {
+                throw new IllegalStateException("ObjectBuffer capacity overflow");
+            }
+            int nextCapacity = capacity * growth;
+            Object[] larger = new Object[nextCapacity];
             System.arraycopy(arr, 0, larger, 0, idx);
+            capacity = nextCapacity;
             arr = larger;
         }
         arr[idx++] = b;
@@ -33,7 +60,7 @@ public class ObjectBuffer extends AFn implements IXFSeqBuffer {
 
     @Override
     public ISeq toTail() {
-        return new ChunkedCons(new ArrayChunk(arr, 0, idx), null);
+        return toSeq(null);
     }
 
     @Override
@@ -48,23 +75,19 @@ public class ObjectBuffer extends AFn implements IXFSeqBuffer {
             // TODO: Verify whether handrolling some cases is a good idea.
             case 1:
                 seq = new Cons(arr[0], seq);
-                arr[0] = null;
-                idx = 0;
+                resetAfterSmallResult();
                 break;
             case 2:
                 seq = new Cons(arr[0], new Cons(arr[1], seq));
-                System.arraycopy(NULLS, 0, arr, 0, idx);
-                idx = 0;
+                resetAfterSmallResult();
                 break;
             case 3:
                 seq = new Cons(arr[0], new Cons(arr[1], new Cons(arr[2], seq)));
-                System.arraycopy(NULLS, 0, arr, 0, idx);
-                idx = 0;
+                resetAfterSmallResult();
                 break;
             case 4:
                 seq = new Cons(arr[0], new Cons(arr[1], new Cons(arr[2], new Cons(arr[3], seq))));
-                System.arraycopy(NULLS, 0, arr, 0, idx);
-                idx = 0;
+                resetAfterSmallResult();
                 break;
             case 5:
             case 6:
@@ -95,17 +118,30 @@ public class ObjectBuffer extends AFn implements IXFSeqBuffer {
             case 31:
             case 32:
                 seq = new ChunkedCons(new ArrayChunk(arr, 0, idx), seq);
-                arr = new Object[capacity];
-                idx = 0;
+                resetAfterExposure();
                 break;
             default:
                 seq = chunkLargeResult(seq);
-                capacity = 32;
-                arr = new Object[capacity];
-                idx = 0;
+                resetAfterExposure();
                 break;
         }
         return seq;
+    }
+
+    private void resetAfterSmallResult() {
+        if (capacity > 32) {
+            capacity = 32;
+            arr = new Object[capacity];
+        } else {
+            System.arraycopy(NULLS, 0, arr, 0, idx);
+        }
+        idx = 0;
+    }
+
+    private void resetAfterExposure() {
+        capacity = Math.min(capacity, 32);
+        arr = new Object[capacity];
+        idx = 0;
     }
 
     private ISeq chunkLargeResult(ISeq s) {
