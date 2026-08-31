@@ -1,9 +1,9 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Implementation in progress (Slice 1 accepted; checkpoint commit pending)
+Status: Implementation in progress (Slice 1 checkpointed; Slice 2 not started)
 
-Stage: plan complete; pre-implementation review passed; Slice 1 implemented and
-accepted by parent validation; checkpoint commit pending
+Stage: plan complete; pre-implementation review passed; Slice 1 implemented,
+accepted, and checkpointed; Slice 2 not started
 
 Last updated: 2026-09-01
 
@@ -1025,3 +1025,4 @@ Verdict: `ready for implementation`.
 | 2026-08-31 | Implementation Slice 1 | `/root/phase2_slice1` | Added deferred object initializer, repaired mixed reduced-aware step, bounded/ownership-safe object buffer, direct LazySeq boundary, removed active generated-step setup, and deterministic object-engine tests. | Full local check passes: 14 tests / 180 assertions / 0 failures / 0 errors; parent inspection and checkpoint commit pending; no JMH claim. |
 | 2026-09-01 | Slice 1 verification | `/root/phase2_slice1` | Recompiled the Java step after adding retained-node retry progress and reran focused/full checks plus diff hygiene. | Focused and full checks pass: 14 tests / 180 assertions / 0 failures / 0 errors; parent inspection and checkpoint commit pending; no JMH claim. |
 | 2026-09-01 | Slice 1 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected the complete diff and mutable state transitions; checked the object-only scope and preserved research paths; independently ran focused tests, the full check, diff hygiene, and a 2,016-cell differential probe. | Accepted for checkpoint commit; no blocking semantic, scope, build, or hygiene finding. |
+| 2026-09-01 | Slice 1 checkpoint | `/root` (`gpt-5.6-sol`, medium) | Committed the accepted Slice 1 code, tests, evidence, and plan updates without pushing. | `10e19e2bcccbf59dbe3d2f95e30d7d8134d749f2`; Slice 2 may start. |
