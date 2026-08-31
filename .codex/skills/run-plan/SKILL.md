@@ -45,7 +45,13 @@ Spawn one `luna_worker` for the next coherent slice. Tell every worker:
 
 After each worker returns, the orchestrator must inspect the diff, run the
 relevant validation, reconcile the plan, and fix or reject the slice before
-starting another worker. Never run workers concurrently, even on disjoint files.
+starting another worker. Once that parent review passes, commit the accepted
+worker slice before spawning the next worker. The commit must contain the
+worker's accepted code, evidence, and plan updates only; preserve unrelated
+pre-existing changes, record the commit SHA in the phase run log, and do not
+push it automatically. If the slice is rejected or blocked, do not create the
+checkpoint commit until the issue is resolved or the phase is returned to
+planning. Never run workers concurrently, even on disjoint files.
 
 Use as many sequential workers as the phase naturally needs. Do not create work
 just to use another worker.
