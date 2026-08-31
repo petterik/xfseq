@@ -1,11 +1,12 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Implementation in progress (Slices 1–2 checkpointed; Slice 3 not
-started)
+Status: Implementation in progress (Slices 1–3 accepted; Slice 3 checkpoint
+commit pending)
 
 Stage: plan complete; pre-implementation review passed; Slice 1 implemented,
 accepted, and checkpointed; Slice 2 implemented and accepted by parent
-validation and checkpointed; Slice 3 not started
+validation and checkpointed; Slice 3 implemented and accepted by parent
+validation; checkpoint commit pending
 
 Last updated: 2026-09-01
 
@@ -954,6 +955,94 @@ remained package-private, so no public support-class expansion was needed.
 | 2026-09-01 | Make expansion and completion-counting operations adapter-owned no-reduced proofs. | The no-reduced candidates must demonstrate structural non-reduction, expanded order/chunk bounds, and terminal idempotence without accepting arbitrary caller metadata. |
 | 2026-09-01 | Keep `XFSeqObjectStep` package-private after an external Java compile probe. | Public candidate subclasses can be called directly from another package through inherited `invoke()`; widening the shared support class would add API surface without evidence. |
 
+## Slice 3 implementation evidence
+
+Slice 3 adds an isolated `bench/java` and `bench/clj` tree plus the `:bench`
+alias's pinned JMH 1.37 dependencies. `bench-aot` first compiles the normal
+Java sources into `target/classes`, copies those classes into an isolated
+benchmark class directory, AOT-compiles `xfseq.core`, the benchmark-only
+candidate adapters, and `xfseq.bench.calls` with direct linking enabled, then
+runs the JMH annotation processor over the Java benchmark sources. `bench-jar`
+packages those classes and dependencies into the standalone
+`target/bench/xfseq-phase2-jmh.jar` without adding benchmark paths to the
+normal library or test aliases.
+
+The Java groups are `Phase2PublicBenchmark` (public end-to-end construction,
+first, prefix, traversal, vector, and reduce sinks), `Phase2JavaBenchmark`
+(direct repaired-candidate loop rows), and `Phase2BufferBenchmark` (isolated
+object-buffer append/flush). Fixtures are created in JMH setup. Public plans
+and candidate plans are selected once in setup; each candidate plan checks its
+expected concrete class before timing, while timed methods contain no
+candidate map lookup, reflection, or Clojure Var forwarding. The AOT caller
+function classes are called through `invokeStatic`, whose bytecode directly
+links to `xfseq.core$xf_seq` and
+`xfseq.phase_2_candidates$instantiate_candidate`; the linkage gate rejects
+Var references in those callers.
+
+The checked-in registry records the complete Phase 2 source, size, workload,
+sink, public-implementation, and repaired-candidate vocabularies, including
+source-shape and no-reduced applicability. The runner validates required JMH
+JSON metrics, benchmark identities, and distinct candidate IDs. Durable JSON
+and EDN metadata use existence checks plus `CREATE_NEW`; a second run at the
+same artifact path is rejected rather than overwriting evidence.
+
+### Slice 3 validation evidence
+
+| Check | Result |
+|---|---|
+| Normal semantic gate before timing | `clojure -Srepro -T:build check` exit 0; lint 0/0, compiler reflection clean, 29 tests / 2,906 assertions / 0 failures / 0 errors (also run by `bench-smoke` before AOT). |
+| Isolated AOT/JMH build | `clojure -Srepro -T:build bench-jar` completed; JMH 1.37 `META-INF/BenchmarkList` and `META-INF/CompilerHints` present in the jar. |
+| Linkage gate | `clojure -Srepro -T:build bench-linkage` completed; representative `javap -c` output records direct calls to `xfseq/core$xf_seq.invokeStatic` and `xfseq/phase_2_candidates$instantiate_candidate.invokeStatic`; no `Var` reference in caller function classes. Linkage output hash: `9cef4511d6bc2367c600379acc151d1e7b384e6f2e022d4949c5d6d88b8c7d30` (machine-local `target/bench/linkage-9a271d791d8971369c1b1a94b49e185a32162118.txt`). |
+| Tiny smoke child groups | Three one-fork JMH 1.37 groups completed with two 100-ms warmups and two 100-ms measurements: public (`xfseq`, `sequence`, list/8/identity), Java (`java-mixed-object-reduced-aware-v2`, `java-dechunked-object-reduced-aware-v2`, list/8/identity), and buffer (8 values). Temporary outputs were under `/private/tmp/xfseq-phase2-smoke-15883971341235910704/`. |
+| Smoke result validation | `clojure -Srepro -M:bench -m xfseq.bench.runner validate-smoke results/phase-2/bench/smoke-9a271d791d8971369c1b1a94b49e185a32162118.json` exit 0; 19 rows, 10 benchmark identities, both candidate IDs present. Result SHA-256: `11971f05500e8ea2d86058346277eea3b07eb2794a4fbd68e65fc41ffa334397`. |
+| Original strict validation boundary | `clojure -Srepro -M:bench -m xfseq.bench.runner validate results/phase-2/bench/smoke-9a271d791d8971369c1b1a94b49e185a32162118.json` exits 1 with `JMH result row is missing required metrics` because all 19 short-run errors are `"NaN"`; this expected rejection proves the original smoke receipt is not accepted as screen/decision evidence. |
+| Environment metadata | `clojure -Srepro -M:bench -m xfseq.bench.runner environment ...` exit 0; `results/phase-2/environment.edn` records direct linking, JMH 1.37, Clojure 1.12.5, Java 26.0.2.1, macOS 26.2 / arm64, GC/heap, dirty commit, exact command vectors, jar hash, and result hash. Environment SHA-256: `02cf64cb0b3b1a237ee5c87becf71bff7de17a8cb29266f3e5b44d4ffc7a64f9`. |
+| Parent-discovered initial smoke defect | The parent ran `clojure -Srepro -T:build bench-smoke` and all three JMH child groups completed, but the subsequent strict `merge` exited 1 on JMH's two-sample `scoreError: "NaN"`. The original child outputs and durable `smoke-9a271d791d8971369c1b1a94b49e185a32162118.json` receipt were preserved. |
+| Profile-aware merge regression test | `clojure -Srepro -M:bench -e "(require 'xfseq.bench.registry 'xfseq.bench.runner 'xfseq.bench.registry-test) (let [r (clojure.test/run-tests 'xfseq.bench.registry-test)] (prn (select-keys r [:test :pass :fail :error])) (when (pos? (+ (:fail r) (:error r))) (System/exit 1)))"` exit 0; 1 test / 5 assertions / 0 failures / 0 errors. Smoke validation and `merge-smoke` accept `"NaN"`; strict `validate` and `merge` reject it before writing a decision artifact. |
+| Intermediate non-overwriting receipt | The first post-fix run `bench-smoke '{:run-id "followup-20260901"}'` was completed and remains preserved at `results/phase-2/bench/smoke-9a271d791d8971369c1b1a94b49e185a32162118-followup-20260901.json` (SHA-256 `361ad067c159a92ee1a7c46fff6cb8d328afb9ddb69dbdc8ee33a7c6c98b0d56`) and `results/phase-2/environment-9a271d791d8971369c1b1a94b49e185a32162118-followup-20260901.edn` (SHA-256 `2fbdcf52fc789b06d51f7f06199b33636a640c2085fd4e548b879b1ccd129210`). |
+| Fresh source-matched one-command smoke receipt | `clojure -Srepro -T:build bench-smoke '{:run-id "followup-20260901b"}'` exit 0 after semantic gates, isolated AOT/linkage, and all three child groups. Temporary child JSON was under `/private/tmp/xfseq-phase2-smoke-1927737577364742442/`; durable result: `results/phase-2/bench/smoke-9a271d791d8971369c1b1a94b49e185a32162118-followup-20260901b.json`, SHA-256 `2cba72ee95debe89184f7ffbd7e5f27ee85b4bc0f4e9e401d23a9abb9c893888`, 19 rows / 10 benchmark identities / both candidate IDs. |
+| Fresh environment/source receipt | `results/phase-2/environment-9a271d791d8971369c1b1a94b49e185a32162118-followup-20260901b.edn`, SHA-256 `d5765318618cadbd3ad3d691ecb3b7b3169ad3dea29597396690272fc2253c69`; records run ID, exact child argv, result SHA-256, JMH jar SHA-256 `8ca36cc2a9910ee673858859d59afd204ec66b371850e6f8dae2d8bfb39946d3`, tracked dirty-diff SHA-256 `1ba7c5dc7ab9954eca1e67fe070b6d90f9d977195902e74a80f0dbe27b01c753`, and benchmark source manifest SHA-256 `f1764ae6aa8a593db721cb391a62f6454437ad6b5d7895de6651e68c2f895eab` with eight per-file hashes. `bench-validate '{:run-id "followup-20260901b"}'` revalidated the receipt without rewriting it. |
+| Parent lifecycle receipt | The parent reran `clojure -Srepro -T:build bench-smoke '{:run-id "parent-20260901"}'`; semantic gates, linkage, all three child JMH groups, `merge-smoke`, `validate-smoke`, and environment writing completed. The result `results/phase-2/bench/smoke-9a271d791d8971369c1b1a94b49e185a32162118-parent-20260901.json` is preserved with SHA-256 `55f0150a76b5cfe89803f4ce19ac2656e4fd43ea0e1728e355218091b5dcd6e7`; its environment `results/phase-2/environment-9a271d791d8971369c1b1a94b49e185a32162118-parent-20260901.edn` is preserved with SHA-256 `b04dd8912b8cafe0bf25abaecbb5d0c19eb2ee37b2bfdee693bffd47f816bb1b`. The parent observed the runner subprocess remained alive after output files existed and interrupted the wait; no raw file was overwritten or removed. |
+| Runner lifecycle probes | On fresh temporary paths under `/private/tmp/xfseq-runner-lifecycle-tdsRe1/`, `/usr/bin/time -p clojure -Srepro -M:bench -m xfseq.bench.runner validate-smoke /private/tmp/xfseq-runner-lifecycle-tdsRe1/validate.json` exited 0 in `real 0.58` seconds; `/usr/bin/time -p clojure -Srepro -M:bench -m xfseq.bench.runner environment /private/tmp/xfseq-runner-lifecycle-tdsRe1/environment.edn smoke runner-lifecycle-20260901 results/phase-2/bench/smoke-9a271d791d8971369c1b1a94b49e185a32162118-parent-20260901.json target/bench/xfseq-phase2-jmh.jar '[]'` exited 0 in `real 0.68` seconds; temporary environment SHA-256 was `437b79cb05852c66b1181959869b0810b00bcd8d51679b139882103899486b07`. The strict `/usr/bin/time -p clojure -Srepro -M:bench -m xfseq.bench.runner validate /private/tmp/xfseq-runner-lifecycle-tdsRe1/validate.json` probe exited 1 in `real 0.64` seconds on expected smoke `"NaN"` rows, and `pgrep -fl 'xfseq.bench.runner'` found no lingering process. |
+| Final lifecycle-fixed smoke receipt | `clojure -Srepro -T:build bench-smoke '{:run-id "lifecycle-20260901"}'` exited 0 and the outer build returned after semantic gates, isolated linkage, all three child groups, profile-aware merge/validation, and environment capture. Temporary child JSON was under `/private/tmp/xfseq-phase2-smoke-3476777049237605159/`; result `results/phase-2/bench/smoke-9a271d791d8971369c1b1a94b49e185a32162118-lifecycle-20260901.json` SHA-256 `6cf48e142c92d2adb33b613b1963b6368972a8b5077c00996a6f2c2bfa013aa9`; environment `results/phase-2/environment-9a271d791d8971369c1b1a94b49e185a32162118-lifecycle-20260901.edn` SHA-256 `28e9ebfe9a64d8d9b63bb32135a9d6b6d243f8fa0f2fbe0e6a0538584b362ba9`. The environment records JMH jar SHA-256 `f52ce02748a3832c6674516da70e80e16369767e5c903f6d21a6c5bdbe63e300`, tracked dirty-diff SHA-256 `d962e3fb69319afc17ce1de944d4d50f0a38b3d94bbc1fe605f8dd7c4352ebac`, and benchmark source manifest SHA-256 `3f938917cc99c86e363200ddbfed185b406fbe9ed3bf9002516fa303f34d1d7b` with eight per-file hashes. |
+| Result-writer safety | `bench-validate` exit 0; a subsequent `bench-smoke` attempt refused to overwrite the existing result path, as required. |
+| Benchmark-only lint | `clojure -Srepro -M:lint -m clj-kondo.main --lint bench` exit 0; 0 errors / 0 warnings. |
+| Diff hygiene | `git diff --check` exit 0. |
+
+The parent-discovered first smoke merge correctly exposed that JMH serializes
+the two-sample error as the string `"NaN"`, but it also exposed a workflow
+defect: the generic merge path was strict and made the otherwise successful
+smoke command exit 1. The fix keeps `merge`/`validate` strict for screen and
+decision evidence and routes only the short profile through explicit
+`merge-smoke`/`validate-smoke` handling. Child rows are validated before a
+durable merge is written, so a strict decision merge cannot leave an invalid
+artifact. The fresh run above proves the one-command smoke now exits 0; no
+score was used for a production decision.
+
+The parent then found a separate lifecycle defect: after a successful smoke,
+the runner had emitted all result and environment files but its
+`clojure.java.shell/sh` agent pools kept the short-lived subprocess alive. The
+runner now calls `shutdown-agents` from a `finally` block around every CLI
+command, preserving command failures while releasing those pools. Fresh
+temporary `validate-smoke` and `environment` probes exit in under a second,
+and the final suffixed smoke above proves the outer `bench-smoke` task also
+returns 0 without an orphaned runner.
+
+### Slice 3 decisions
+
+| Date | Decision | Reason |
+|---|---|---|
+| 2026-09-01 | Keep all benchmark source and AOT output under isolated `bench/*` and `target/bench/*` paths. | Normal `check` must retain its existing classpath and test semantics; benchmark classes are not production classes. |
+| 2026-09-01 | Use regular AOT Clojure function classes and call `invokeStatic` directly from Java. | `gen-class` forwarding methods perform Var lookup on every call; direct generated function classes preserve direct linking in the timed caller boundary. |
+| 2026-09-01 | Bind the AOT loader's dynamic `*warn-on-reflection*` and `*ns*` vars once in benchmark support. | Direct Java startup bypasses Clojure's normal namespace loader; one-time binding permits production namespaces to initialize without adding lookup work to timed methods. |
+| 2026-09-01 | Split the smoke into three JMH invocations and merge their JSON arrays. | Public, candidate, and buffer groups have different parameter vocabularies; separate invocations keep the smoke tiny and avoid invalid source-shape Cartesian cells. |
+| 2026-09-01 | Accept JMH `"NaN"` score errors only for short smoke validation. | Two measurement samples cannot produce a confidence interval; screen/decision profiles remain responsible for numeric uncertainty and fork evidence. |
+| 2026-09-01 | Keep generic `merge`/`validate` strict and add an explicit `merge-smoke` path. | The parent-discovered NaN failure was a profile mismatch, not permission to weaken decision validation; validating child rows before writing also prevents invalid strict artifacts. |
+| 2026-09-01 | Require a safe explicit `run-id` for follow-up smoke receipts. | `CREATE_NEW` protects the original receipt while making reruns deterministic and easy to identify at the same commit. |
+| 2026-09-01 | Record tracked dirty-diff and benchmark source-tree hashes in environment metadata. | HEAD predates this uncommitted slice; the fresh receipt must identify the exact dirty implementation and every benchmark/harness file used. |
+| 2026-09-01 | Shut down Clojure agent pools in the benchmark runner's `finally` boundary. | `clojure.java.shell/sh` can leave stream-reader agents alive after output is complete; the CLI must return promptly on both success and failure. |
+| 2026-09-01 | Reject existing durable result and environment paths before any JMH child starts. | Raw evidence must be non-overwriting and a failed/partial run must not silently replace an earlier artifact. |
+
 ## Plan review findings
 
 ### Review 1: semantics, scope, and measurement
@@ -1097,3 +1186,7 @@ Verdict: `ready for implementation`.
 | 2026-09-01 | Slice 2 parent-check follow-up | `/root/phase2_slice2` | Added fresh 16-size / eight-transform differential coverage for all applicable reduced-aware candidates, explicit dechunked-to-chunked and chunked-to-dechunked mixed tails, adapter-owned expanding no-reduced coverage, and terminal direct-reinvoke checks. | Candidate suite 15 tests / 2,726 assertions; full check 29 / 2,906; lint/reflection, Java 8 javac, diff hygiene, and external inherited-`invoke` probe all passed; awaiting parent review/checkpoint, no JMH claim. |
 | 2026-09-01 | Slice 2 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected the shared state machine, canonical retry fix, primitive-sibling boundary, adapters, registry, and complete expanded candidate suite; independently reran focused tests, the full check, and diff hygiene. | Accepted for checkpoint commit; 15 / 2,726 focused and 29 / 2,906 full assertions pass with no semantic, scope, build, reflection, lint, or hygiene blocker. |
 | 2026-09-01 | Slice 2 checkpoint | `/root` (`gpt-5.6-sol`, medium) | Committed the accepted Slice 2 code, tests, evidence, and plan updates without pushing. | `9ef99d1c81876909c0acad8a38505023d0a7db9c`; Slice 3 may start. |
+| 2026-09-01 | Implementation Slice 3 | `/root/phase2_slice3` | Added the isolated JMH 1.37 Java/Clojure harness, direct-linked AOT callers, public/candidate/buffer groups, parameter registry, environment/result validator, non-overwriting smoke artifacts, and benchmark documentation. | Semantic gate passed (29 / 2,906); standalone jar and linkage gate passed; three tiny smoke groups completed; 19-row merged smoke validated; result/environment hashes recorded above. Parent review and checkpoint commit pending; no screen/decision or production-selection claim. |
+| 2026-09-01 | Slice 3 parent-check follow-up | `/root/phase2_slice3` | Reproduced the parent-reported strict merge failure on JMH `"NaN"`; added profile-aware `merge-smoke`, strict pre-write merge validation, registry regression coverage, explicit non-overwriting smoke run IDs, and dirty-source hashes. | Fresh source-matched `bench-smoke '{:run-id "followup-20260901b"}'` exits 0; durable result/environment paths and hashes are recorded above. Original and intermediate receipts remain unchanged and validate under their appropriate profiles; no screen/decision or production-selection claim. Parent review and checkpoint commit pending. |
+| 2026-09-01 | Slice 3 runner-lifecycle follow-up | `/root/phase2_slice3` | Preserved the parent `parent-20260901` receipts; fixed lingering `clojure.java.shell/sh` agents with `shutdown-agents` in a `finally`; measured fresh validate/environment subprocess termination and ran a final suffixed smoke. | Runner probes exit in 0.58s/0.68s with no lingering process; final `bench-smoke '{:run-id "lifecycle-20260901"}'` exits 0. Parent review and checkpoint commit pending; no screen/decision or production-selection claim. |
+| 2026-09-01 | Slice 3 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected timed paths, applicability, AOT bytecode, result/environment writers, raw receipts, merge-profile isolation, and runner lifecycle; independently built the jar, ran all smoke groups, reproduced both workflow defects, revalidated the final lifecycle receipt, reran the registry test and full check, and ignored the generated clj-kondo cache. | Accepted for checkpoint commit; final smoke and validation helpers terminate cleanly, 19-row identity receipt validates, registry 1 / 5 and normal 29 / 2,906 suites pass, linkage/lint/reflection/hygiene are clean, and no performance decision claim is made. |
