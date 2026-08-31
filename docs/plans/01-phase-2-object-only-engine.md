@@ -1,11 +1,11 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Implementation in progress (Slices 1–2 accepted; Slice 2 checkpoint
-commit pending)
+Status: Implementation in progress (Slices 1–2 checkpointed; Slice 3 not
+started)
 
 Stage: plan complete; pre-implementation review passed; Slice 1 implemented,
 accepted, and checkpointed; Slice 2 implemented and accepted by parent
-validation; checkpoint commit pending
+validation and checkpointed; Slice 3 not started
 
 Last updated: 2026-09-01
 
@@ -1096,3 +1096,4 @@ Verdict: `ready for implementation`.
 | 2026-09-01 | Implementation Slice 2 | `/root/phase2_slice2` | Repaired the six retained object candidate classes through shared `XFSeqObjectStep` state/completion code; delegated `ObjectStep` while preserving primitive siblings; fixed the demonstrated reduced-completion retry defect in canonical `XFSeqStepSimple`; added test/benchmark-only shape/proof adapters, v2 registry/mapping, and candidate contract tests. | Initial candidate suite passed 11 tests / 117 assertions; parent-check follow-up expanded it to 15 / 2,726 and the full check to 29 / 2,906; Java accessibility probe passed; parent review and checkpoint commit pending; no JMH claim. |
 | 2026-09-01 | Slice 2 parent-check follow-up | `/root/phase2_slice2` | Added fresh 16-size / eight-transform differential coverage for all applicable reduced-aware candidates, explicit dechunked-to-chunked and chunked-to-dechunked mixed tails, adapter-owned expanding no-reduced coverage, and terminal direct-reinvoke checks. | Candidate suite 15 tests / 2,726 assertions; full check 29 / 2,906; lint/reflection, Java 8 javac, diff hygiene, and external inherited-`invoke` probe all passed; awaiting parent review/checkpoint, no JMH claim. |
 | 2026-09-01 | Slice 2 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected the shared state machine, canonical retry fix, primitive-sibling boundary, adapters, registry, and complete expanded candidate suite; independently reran focused tests, the full check, and diff hygiene. | Accepted for checkpoint commit; 15 / 2,726 focused and 29 / 2,906 full assertions pass with no semantic, scope, build, reflection, lint, or hygiene blocker. |
+| 2026-09-01 | Slice 2 checkpoint | `/root` (`gpt-5.6-sol`, medium) | Committed the accepted Slice 2 code, tests, evidence, and plan updates without pushing. | `9ef99d1c81876909c0acad8a38505023d0a7db9c`; Slice 3 may start. |
