@@ -1,8 +1,10 @@
 # Implementation #1, Phase 0: preserve and characterize
 
-Status: Ready for implementation
+Status: Awaiting final review
 
-Stage: planned
+Stage: implemented
+
+Run stage: complete; final review: pending.
 
 Last updated: 2026-08-31
 
@@ -513,6 +515,10 @@ Phase 0 may move to final review only when all are true:
 | 2026-08-31 | Leave build modernization and JMH to Phase 1. | Phase 0 needs preservation evidence, not a second build design. |
 | 2026-08-31 | Name legacy stop checks `identity-stop`, not `reduced`. | The loops compare accumulator identity and are not yet correct implementations of Clojure's `Reduced` contract. |
 | 2026-08-31 | Treat the full SHA in the committed manifest as authoritative; the tag is a human-readable local/published convenience. | Tags are transferred separately and the run has no implicit authority to publish refs. |
+| 2026-08-31 | Create `research-2020-05-10` as a local annotated tag at the explicit preservation SHA, and do not publish it in Slice 1. | The tag gives local history a readable name without moving or duplicating the 2020 tree; the full SHA and checksums remain the durable manifest. |
+| 2026-08-31 | Keep Slice 2 as one dependency-free, data-oriented semantic runner with expected historical differences labeled in EDN. | The unchanged suite stays a green preservation smoke while direct Clojure oracles make the incomplete surface and known defects auditable without turning archaeology into product tests. |
+| 2026-08-31 | Keep Slice 3 timing expressions statically linked at their candidate call sites, and resolve no vars inside timed closures. | The two direct-linking lanes must measure the requested caller/candidate compiler modes without adding development-runner dispatch overhead to every Criterium iteration. |
+| 2026-08-31 | Keep Criterium 0.4.5 with bounded samples/warmup/target and preserve every raw sample and uncertainty field. | The pinned JDK 26 smoke succeeded; bounded execution keeps six fresh JVM snapshots practical while retaining honest historical context and explicitly avoiding an adoption claim. |
 
 ## Validation evidence
 
@@ -527,6 +533,194 @@ artifacts:
 | 2026-08-31 | Same temporary build and tests, Clojure 1.12.5/JDK 26 | 1 test, 46 assertions, 0 failures, 0 errors. |
 | 2026-08-31 | Direct semantic probes on both Clojure lanes | Reproduced incomplete sequence surface, double transducer application, lost empty completion, incomplete `consume`, broken `drain`, eager ASM construction, and missing map arities. |
 | 2026-08-31 | Benchmark/history inspection | One Criterium source file; only ASM block active; no raw result files; one unqualified timing comment. |
+| 2026-08-31 | `git rev-parse 168ce02f2dcb796045990fe1647205f4da20c1f5^{commit}` and `git show -s --format=fuller 168ce02f2dcb796045990fe1647205f4da20c1f5` | Exact preservation commit confirmed: `168ce02f2dcb796045990fe1647205f4da20c1f5`, committed 2020-05-10 14:08:31 -0700; subject is the chunk-processing extraction. |
+| 2026-08-31 | `git tag -a research-2020-05-10 168ce02f2dcb796045990fe1647205f4da20c1f5 -m 'Preserve 2020 research implementation for xfseq Implementation #1'`; then `git rev-parse research-2020-05-10^{commit}` and `git cat-file -t research-2020-05-10` | Local annotated tag created; it resolves exactly to the preservation commit and has type `tag`. Tag object: `555c01620cce3b1eeb59384008a7d30786e4a427`. |
+| 2026-08-31 | `git ls-remote origin refs/tags/research-2020-05-10 refs/tags/research-2020-05-10^{}` | No rows; tag is local only and was not published. |
+| 2026-08-31 | `git ls-tree -r --full-tree research-2020-05-10 -- src src-java test deps.edn \| shasum -a 256`; `git archive --format=tar research-2020-05-10 -- src src-java test deps.edn \| shasum -a 256` | Tree-list SHA-256 `d9db3f7db3c8c62b786e2241c648038daa7ba5ac4f7c52e9431f25eb67da882b`; archive SHA-256 `effaac4ee627ceb17581dc2e6c9c40b12b9e72a46c282d0239e041fdb5befc67`. |
+| 2026-08-31 | `git ls-tree -r --name-only research-2020-05-10 -- src src-java test deps.edn \| wc -l` and path inventory | 34 tracked preservation files: 4 Clojure, 27 Java, 2 test/benchmark, and `deps.edn`; every path is listed in [`docs/history/01-2020-research-state.md`](../history/01-2020-research-state.md). |
+| 2026-08-31 | `git diff --quiet 168ce02f2dcb796045990fe1647205f4da20c1f5..HEAD -- src src-java test deps.edn README.md CHANGELOG.md doc .gitignore; echo path_diff_exit=$?` | Exit `0`, no output; the production, legacy test/benchmark, dependency, and legacy documentation paths remain byte-for-byte unchanged. |
+| 2026-08-31 | Slice 2 runner, Clojure 1.10.1/JDK 26.0.2.1, fresh `javac --release 8` output | Exit `0`; unchanged suite summary is 1 test, 46 assertions, 0 failures, 0 errors. Report: [`clj-1.10.1-jdk-26.0.2.1.edn`](../../results/phase-0/semantic/clj-1.10.1-jdk-26.0.2.1.edn), 10,932 bytes, SHA-256 `2b74bdc387ec6415a1c2c4482d815def0c3295689bc036da5dea1ddfd3af63d4`; direct-linking property `false`; clean declared-classpath child require exit `1`, `ClassNotFoundException`, missing `xfseq.ILongSeq`. |
+| 2026-08-31 | Slice 2 runner, Clojure 1.12.5/JDK 26.0.2.1, fresh `javac --release 8` output | Exit `0`; unchanged suite summary is 1 test, 46 assertions, 0 failures, 0 errors. Report: [`clj-1.12.5-jdk-26.0.2.1.edn`](../../results/phase-0/semantic/clj-1.12.5-jdk-26.0.2.1.edn), 10,965 bytes, SHA-256 `ee1a06313dad555efc3105efdcd7ea587e734281b055ee1430e0bab7e4e6cf87`; direct-linking property `false`; clean declared-classpath child require exit `1`, `ClassNotFoundException`, missing `xfseq.ILongSeq`. |
+
+Slice 2 used Homebrew Clojure CLI `1.12.5.1664`, Homebrew OpenJDK
+`26.0.2.1` (`aarch64`, macOS `26.2`), and exact Maven jars for each Clojure
+lane plus its pinned `spec.alpha` and `core.specs.alpha` dependencies. Each
+lane compiled all tracked Java sources into a new `/private/tmp` directory,
+then launched the runner with direct linking explicitly set to `false` and
+the declared source paths. The runner independently launched the clean-load
+child with only the Clojure/dependency jars and `src`, so the missing Java
+class was observed after the temporary compiled run as metadata rather than
+silently inferred. The reports retain the exact suite output and all required
+direct-oracle observations: result surface, construction source traces,
+transducer application counts/timings, empty completion, chunked/dechunked
+early reduction, `consume` completion, two-stage `drain`, public arities, and
+the clean classpath failure. Timing fields are diagnostic only; expected
+historical differences remain labeled and no correctness or performance claim
+is made.
+
+Reproducible command shape (the reports contain the fully expanded command,
+temporary output path, classpath, and runtime metadata):
+
+```sh
+javac --release 8 -cp <clojure-jar>:<spec-alpha-jar>:<core-specs-alpha-jar> \
+  -d <fresh-temp-classes> $(find src-java -name '*.java' -print | sort)
+java -cp <clojure-jar>:<spec-alpha-jar>:<core-specs-alpha-jar>:<fresh-temp-classes>:<repo>/src:<repo>/test:<repo>/dev \
+  -Dclojure.compiler.direct-linking=false clojure.main -m xfseq.phase-0-characterize \
+  --output results/phase-0/semantic/<report>.edn \
+  --clojure-version <1.10.1-or-1.12.5> --cli-version 1.12.5.1664 \
+  --source-root <repo>/src \
+  --clean-classpath <clojure-jar>:<spec-alpha-jar>:<core-specs-alpha-jar>:<repo>/src \
+  --command '<full javac/java description>'
+```
+
+### Slice 3 validation evidence (2026-08-31)
+
+The pinned dependency smoke resolved Clojure 1.10.1 with its declared
+`spec.alpha` 0.2.176 and `core.specs.alpha` 0.2.44 jars, plus Criterium 0.4.5,
+without editing `deps.edn`. The Criterium jar was downloaded from
+`https://repo.clojars.org/criterium/criterium/0.4.5/criterium-0.4.5.jar`.
+The dependency SHA-256 values are:
+
+| Artifact | SHA-256 |
+|---|---|
+| `clojure-1.10.1.jar` | `d4f6f991fd9ed2a59e7ea4779010b3b069a2b905f3463136c42201106b4ad21a` |
+| `spec-alpha-0.2.176.jar` | `fc4e96ecff34ddd2ab7fd050e74ae1379342ee09daa6028da52024c5de836cc4` |
+| `core-specs-alpha-0.2.44.jar` | `3b1ec4d6f0e8e41bf76842709083beb3b56adf3c82f9a4f174c3da74774b381c` |
+| `criterium-0.4.5.jar` | `c8d798059a7d185dcb528ed4edb0af6313aabcfa54cf9c8e1f84928d548dd3d9` |
+
+The required one-case compatibility smoke ran first in a fresh JVM with JDK
+26, G1, and the 2 GiB heap:
+
+```sh
+/opt/homebrew/Cellar/openjdk/26.0.2.1/libexec/openjdk.jdk/Contents/Home/bin/java \
+  -Xms2g -Xmx2g -XX:+UseG1GC \
+  -Dclojure.compiler.direct-linking=false \
+  -cp /private/tmp/xfseq-phase0-jars/clojure-1.10.1.jar:/private/tmp/xfseq-phase0-jars/spec-alpha-0.2.176.jar:/private/tmp/xfseq-phase0-jars/core-specs-alpha-0.2.44.jar:/private/tmp/xfseq-phase0-jars/criterium-0.4.5.jar \
+  clojure.main -e "(require '[criterium.core :as c]) (let [r (c/benchmark* (fn [] (reduce + 0 [1 2 3])) {:samples 3 :warmup-jit-period 1000000 :target-execution-time 1000000 :bootstrap-size 20 :max-gc-attempts 1 :overhead 0 :supress-jvm-option-warnings true})] (prn (select-keys r [:execution-count :sample-count :samples :mean :lower-q :upper-q :options])))"
+```
+
+It exited `0`; the durable raw smoke output is
+[`criterium-smoke.stdout`](../../results/phase-0/performance/clj-1.10.1-jdk-26.0.2.1/legacy-original-shape/criterium-smoke.stdout)
+with SHA-256 `b4894206a21601582bc5523c2fdc9c722c736de0afafee829c92ab006b820cd2`.
+Its exact command, environment, pinned-jar checksums, exit status, and explicit
+compatibility-only limitations are recorded in
+[`criterium-smoke.meta.edn`](../../results/phase-0/performance/clj-1.10.1-jdk-26.0.2.1/legacy-original-shape/criterium-smoke.meta.edn)
+(SHA-256 `fc5f5e9eb4305fb4abb7e40a4fba1996faf94dafcbbe59805b7bc35199b4ba4b`).
+The earlier `/private/tmp/xfseq-phase0-criterium-smoke.stdout` path was staging
+only and is not relied upon. The bounded smoke retained Criterium raw samples
+and uncertainty; it was not substituted for the full snapshot.
+
+`dev/xfseq/phase_0_bench.clj` now contains the exact stable registry: 4
+top-level identities, all 13 hand-written Java identities mapped to their
+fully-qualified source classes, and 54 generated ASM identities. Each ASM ID
+encodes argument type, input type, `identity-stop`/`no-stop`, and
+`mixed`/`chunked`/`dechunked` mode, with its exact constructor key and class
+name. Constructor smoke used each candidate's declared buffer, reducing
+function, and source shape; all 67 Java/ASM constructor rows were `:ok` and
+`:unsupported-or-unreachable` was `[]` in every timing report. No hand-written
+variant was added to the comparable timing matrix.
+
+The six timing JVMs reused the fresh Slice 2 `javac --release 8` output at
+`/private/tmp/xfseq-phase0-final-101.gcNg8H`; representative `javap -verbose`
+inspection reports class-file major version `52` (minor `0`). Each process
+used OpenJDK 26.0.2.1/Homebrew, macOS 26.2 build 25C56 arm64, G1,
+`-Xms2g -Xmx2g`, and Clojure 1.10.1. The canonical command shape was:
+
+```sh
+<java> -Xms2g -Xmx2g -XX:+UseG1GC \
+  -Dclojure.compiler.direct-linking=<false-or-true> -cp <full-classpath> \
+  clojure.main -m xfseq.phase-0-bench \
+  --lane <legacy-original-shape-or-historical-on> --fork <1-or-2-or-3> \
+  --clojure-version 1.10.1 --direct-linking <false-or-true> \
+  --output results/phase-0/performance/clj-1.10.1-jdk-26.0.2.1/<lane>/fork-<n>.edn \
+  --stdout-output results/phase-0/performance/clj-1.10.1-jdk-26.0.2.1/<lane>/fork-<n>.stdout \
+  --meta-output results/phase-0/performance/clj-1.10.1-jdk-26.0.2.1/<lane>/fork-<n>.meta.edn
+```
+
+The fully expanded command, JVM flags, process ID, linking interpretation,
+classpath/jar checksums, preservation SHA/tag, Criterium options, uncertainty
+fields, implementation/case identity, semantic label, and raw EDN/stdout
+checksums are retained in every timing `.meta.edn` file. The six final reports contain
+24 successful timing rows each (the three required top-level paths × the
+original eight sources, size 10,000, identity/typed-identity transforms, and
+the value-discarding full-reduce sink). Criterium was bounded explicitly to
+3 samples, 100 ms warmup, 25 ms target execution, 100 bootstrap samples, and
+3 GC attempts (versus its 60/10 s/1 s/1000/100 defaults); all raw samples,
+means, quantiles, variance, confidence intervals, warmup, and GC fields remain
+in the structured reports.
+
+| Lane | Fork | `fork-n.edn` SHA-256 | `fork-n.stdout` SHA-256 | `fork-n.meta.edn` SHA-256 |
+|---|---:|---|---|---|
+| `legacy-original-shape` | 1 | `a64fd95260a475316414744191d05f4ea4f9c7aad85b7de3ab5453c0db345ef9` | `66e43646560b73ef42399ec2697961dfb9365a2b97478a9dd5681e27103274c2` | `1d59427e902bcedca5770c4d66d9a1d283c3b3eb868b108dd3cb1be955d427e9` |
+| `legacy-original-shape` | 2 | `1249745186395067abe31b0fa321823c78fde9965a23d56337d6995f92a38675` | `4e5721a3ae2141cf106d83fe3d5ca93829c7d6e79e4aa04c949ac629d166ae94` | `68e64160f4ec992957621e5b2aaf5bb3a617da7be4eec30c2431a4df4e9d6068` |
+| `legacy-original-shape` | 3 | `b6ef5f57af343a1ae8a88adb5fd0bcc01071cdb3b8cddb89cba04182812f9fb3` | `4b99c4560383c78f4fd494749ff2e8bc785ab3d0a90ee4156ffd0e2f002be387` | `d1ae1aa43a5a1836bcbab51b457a2e2f245f3b5ec74de79b3c77ec9b28161a31` |
+| `historical-on` | 1 | `33e1029ac049153ff92cbcd6e5f3bda03a04b1ad8ec4f919533a4f8810851235` | `11f70ca3e8795a4e3896b21ad235ee6a079c4f7f16158fc6e280498aa9c4e4fe` | `06496f2cae41827cb1f5ccaaad952b7fdcafb7c7c261539a33dacf24a2854aec` |
+| `historical-on` | 2 | `db1d4271c14643470962cb64837941c52d6a718974e5f6e79ea268a73583f746` | `c5d0c389509c27854767eaeef7b9e3db55f94bac9b4968790779af970c7585c0` | `5ee9886725986491af8ec59602341402a2cb3dbeaf915051507748e196e29f9b` |
+| `historical-on` | 3 | `9374c40a788359ff2eeacc913a7825355a58209cb7c36e46b8b0e140d3195fd6` | `bffaa855f9be9cb37c10f6964f0c9b5af2bd226bc01b112d6e33a060ba8c768f` | `580d185e87dd95e64072f491c541ffc7a98d9e4ab6976ace42d94c45d8a02048` |
+
+The reports explicitly mark legacy timing rows `:semantically-non-equivalent`.
+They also explicitly state: no allocation measurement; no release-equivalent
+or upstream-adoption evidence; no overall winner; and no pooled speedup. The
+`legacy-original-shape` lane has source caller/candidate direct linking
+explicitly false with the released core jar on; `historical-on` sets the
+source caller/candidate property true while retaining the released core jar and
+labels that configuration `:symmetric-on`; the false lane remains labeled
+`:asymmetric-released-core-on-source-off`. No timing conclusion is drawn from
+either lane.
+
+### Slice 4 validation evidence and exit-criteria audit (2026-08-31)
+
+Slice 4 inspected the actual Slice 1–3 files and performed the parent
+integration checks before handing the run to final review. No correction to
+the history note was necessary: its tag identity, 34-file preservation
+inventory, checksums, candidate IDs, and limitations agree with the artifacts.
+
+The semantic reports
+[`clj-1.10.1-jdk-26.0.2.1.edn`](../../results/phase-0/semantic/clj-1.10.1-jdk-26.0.2.1.edn)
+and
+[`clj-1.12.5-jdk-26.0.2.1.edn`](../../results/phase-0/semantic/clj-1.12.5-jdk-26.0.2.1.edn)
+were parsed afresh. Both contain the unchanged suite result of one test, 46
+passing assertions, zero failures, and zero errors. Both retain the confirmed
+historical observations: incomplete `XFSeqHead` result surface, repeated
+transducer application, missing empty completion, missing `consume`
+completion, broken two-stage `drain`, ASM construction source access, and
+missing multi-collection `map` arities. The clean declared-classpath child
+fails with exit status `1` and missing `xfseq.ILongSeq`, as expected. The
+report SHA-256 values remain `2b74bdc387ec6415a1c2c4482d815def0c3295689bc036da5dea1ddfd3af63d4`
+and `ee1a06313dad555efc3105efdcd7ea587e734281b055ee1430e0bab7e4e6cf87`.
+
+The six timing reports under
+[`results/phase-0/performance/`](../../results/phase-0/performance/) were
+parsed afresh. They contain 144 `:ok` rows (24 per fork), six distinct process
+IDs, the complete 71-ID registry (4 top-level, 13 Java, 54 ASM), all 67
+Java/ASM constructor smokes `:ok`, and no unsupported or unreachable rows.
+Every timing EDN and stdout SHA-256 matches its metadata; the durable
+[`criterium-smoke.stdout`](../../results/phase-0/performance/clj-1.10.1-jdk-26.0.2.1/legacy-original-shape/criterium-smoke.stdout)
+SHA-256 also matches
+[`criterium-smoke.meta.edn`](../../results/phase-0/performance/clj-1.10.1-jdk-26.0.2.1/legacy-original-shape/criterium-smoke.meta.edn).
+The original-shape metadata is labeled
+`:asymmetric-released-core-on-source-off`; all three historical-on metadata
+files are labeled `:symmetric-on`. All six processes exited `0` with the
+declared JDK, Clojure, Criterium, heap, GC, and linking metadata.
+
+| Exit criterion | Slice 4 result and evidence |
+|---|---|
+| 1. Immutable preservation reference | Pass: `research-2020-05-10^{commit}` resolves to `168ce02f2dcb796045990fe1647205f4da20c1f5`; `git cat-file -t research-2020-05-10` is `tag`; annotated tag object is `555c01620cce3b1eeb59384008a7d30786e4a427`. |
+| 2. Preservation manifest | Pass: history note and plan contain the full SHA, checkout command, API/candidate inventory, parent-design links, tree SHA `d9db3f7db3c8c62b786e2241c648038daa7ba5ac4f7c52e9431f25eb67da882b`, and archive SHA `effaac4ee627ceb17581dc2e6c9c40b12b9e72a46c282d0239e041fdb5befc67`. |
+| 3. All preserved paths reachable and unchanged | Pass: `git ls-tree` lists 34 preservation files; the path-limited preservation diff exits `0`. |
+| 4. Fresh legacy suite on both Clojure lanes | Pass: both semantic reports contain the exact 1-test/46-assertion/0-failure/0-error summary and full commands/runtime metadata. |
+| 5. Direct-oracle failure record | Pass: both reports retain and label every confirmed Phase 0 observation listed above, including the clean-load failure. |
+| 6. Stable candidate IDs | Pass: every report has 71 unique IDs and the exact 4/13/54 top-level/Java/ASM registry split; all 67 constructor smokes are `:ok`. |
+| 7. Historical smoke and snapshot | Pass: durable Criterium 0.4.5 smoke plus two lanes × three fresh JVM forks; raw EDN/stdout/metadata files, commands, and SHA-256 values are present and verified. |
+| 8. Timing interpretation | Pass: reports and plan state historical context only, semantic non-equivalence, no allocation measurement, no release-equivalence or upstream-adoption evidence, and no winner or pooled speedup. |
+| 9. Protected paths | Pass: `src/`, `src-java/`, `test/xfseq/`, and `deps.edn` remain byte-for-byte unchanged from the preservation commit. |
+| 10. Final run validation | Pass: `git diff --check` and the protected-path check exit `0`; expected changes are limited to the history note, development runners, results, and this plan. |
+| 11. Handoff state | Pass: this plan is `Awaiting final review`, the run stage is complete, final review is pending, and no Phase 1 work was started. |
+
+The benchmark remains a historical snapshot only. No allocation, release,
+adoption, correctness, or production-loop conclusion is drawn from its timing
+rows. The local tag remains unpublished, and no commit or push is part of this
+run.
 
 ## Plan review findings
 
@@ -641,3 +835,7 @@ Verdict: `ready for implementation`.
 | Date | Stage | Agent | Work | Result |
 |---|---|---|---|---|
 | 2026-08-31 | Plan | `/root` (`gpt-5.6-sol`, high) | Read all required planning skills; inspected the complete parent design, history, source, Java candidates, tests, benchmark, toolchain, and direct Clojure behavior. | Plan reviewed; pre-implementation verdict `ready for implementation`. |
+| 2026-08-31 | Run / Slice 1 | `/root/phase0_slice1` | Rechecked the clean worktree and explicit 2020 commit; created the local annotated `research-2020-05-10` tag; verified its target, tag type, remote publication status, preservation tree/archive checksums, complete 34-file inventory, and path-limited zero diff; added the preservation/history manifest. | Slice 1 checkpoint complete. Changed only `docs/history/01-2020-research-state.md` and preservation evidence/log entries in this plan; no production or legacy test/benchmark files changed; tag remains local only. |
+| 2026-08-31 | Run / Slice 2 | `/root/phase0_slice2` | Added `dev/xfseq/phase_0_characterize.clj`; compiled the unchanged tracked Java sources into fresh temporary outputs for exact Clojure 1.10.1 and 1.12.5 lanes; ran the legacy suite, direct-oracle characterization, and clean declared-classpath child require. | Slice 2 checkpoint complete. Added only the development runner, the two semantic EDN reports, and Slice 2 plan evidence/decision/log entries. Both lanes exited `0` with 1 test, 46 assertions, 0 failures, 0 errors; expected historical differences are visibly labeled, and the clean-load child exited `1` with `ClassNotFoundException: xfseq.ILongSeq`. |
+| 2026-08-31 | Run / Slice 3 | `/root/phase0_slice3` | Added `dev/xfseq/phase_0_bench.clj`; resolved pinned Clojure 1.10.1/Criterium 0.4.5 dependencies to `/private/tmp`; ran the compatibility smoke first; registered and constructor-smoked 54 ASM keys and 13 hand-written Java IDs; ran six fresh JDK 26 JVMs across both linking lanes with the exact 24-case top-level matrix. | Slice 3 checkpoint complete. Added only the development benchmark runner, the two planned lane directories with 20 raw artifacts (18 timing artifacts plus durable smoke stdout/metadata), and Slice 3 plan evidence/decision/log entries. Every process exited `0`; all six reports have 24 `:ok` timing rows, all 71 registry IDs are unique, all 67 Java/ASM constructor smokes are `:ok`, unsupported/unreachable is `[]`, each timing metadata file's raw EDN/stdout checksums match, and the durable smoke metadata records its raw stdout checksum. Timing remains historical context only. |
+| 2026-08-31 | Run / Slice 4 | `/root/phase0_slice4` | Parsed both semantic reports and all six timing reports; verified the durable Criterium smoke, raw artifact hashes, preservation tag/checksums, registry and constructor coverage, lane labels, and protected paths; added the explicit exit-criteria audit and handoff state. | Slice 4 complete. No history-note correction was needed; `git diff --check` and protected-path checks exit `0`. The implementation/run stage is complete, the plan is `Awaiting final review`, and final semantic/performance/simplicity review remains pending. |
