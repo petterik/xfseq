@@ -27,6 +27,36 @@ coupling to the primitive experiment, complete the missing arities, and build a
 test and benchmark suite strong enough to support a technical article or an
 upstream proposal.
 
+## Project standard and upstream goal
+
+The end goal is a change good enough to merge into Clojure, not merely a fast
+experimental library or an interesting article.
+
+The problem statement is:
+
+> The sequence library is foundational to Clojure and is used by virtually
+> every project. Its implementation may be made simpler and materially faster
+> by carrying the transducer model further down into ordinary lazy sequence
+> production, while preserving exact sequence semantics.
+
+Success requires all three properties:
+
+1. **Performance:** broad, reproducible wins over current core with symmetric
+   release-equivalent compilation, without material regressions in supported
+   primary cases.
+2. **Simplicity:** fewer concepts and less duplicated collection-function
+   machinery, without moving complexity into opaque generation or dispatch.
+3. **Extreme quality:** semantic, testing, build, documentation, and review
+   standards suitable for Clojure core.
+
+The original project appeared faster in most tested cases, but the supporting
+notes are lost. Treat that as motivation, not evidence: establish the baseline
+and every performance claim again on current Clojure and JVM versions.
+
+A `consume`/`drain` API and pipeline fusion may become easier as a consequence
+of this design. That possibility is secondary and must not distort ordinary seq
+semantics or enlarge the first upstream proposal.
+
 ## Goals
 
 1. Implement a general `xf-seq` operation that turns a transducer and one input
