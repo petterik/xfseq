@@ -3,6 +3,8 @@
     [clojure.set :as set]
     [clojure.walk :as walk]))
 
+(set! *warn-on-reflection* true)
+
 ;;;;;;;;;;;;;;;;;;;
 ;; Type analyzing
 ;;
@@ -188,4 +190,3 @@
         (assoc-in ana-rf [2 :args 1] (get-in ana-f [1 :args 0]))
         xf-body
         replacements))))
-

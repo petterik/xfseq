@@ -2,12 +2,10 @@
   (:refer-clojure :exclude [map filter remove take])
   (:require
     [clojure.core :as clj.core]
-    [clojure.set :as set]
-    [clojure.walk :as walk]
     [xfseq.analyze :as ana]
     [xfseq.protocols :as p])
   (:import [xfseq ILongSeq IDoubleSeq LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk]
-           [clojure.lang Numbers IFn]
+           [clojure.lang IFn]
            [xfseq.buffer LongBuffer DoubleBuffer ObjectBuffer]))
 
 (set! *warn-on-reflection* true)
@@ -19,6 +17,7 @@
         (lazy-seq
           (long-chunk arr chunk-length len))))))
 
+^{:clj-kondo/ignore [:unresolved-protocol-method]}
 (extend-protocol p/ILongSeqable
   (class (long-array 0))
   (long-seq [arr]
@@ -34,6 +33,7 @@
         (lazy-seq
           (double-chunk arr chunk-length len))))))
 
+^{:clj-kondo/ignore [:unresolved-protocol-method]}
 (extend-protocol p/IDoubleSeqable
   (class (double-array 0))
   (double-seq [arr]
@@ -115,25 +115,24 @@
               (with-meta (symbol "s") {:tag                    (class->sym seq-class)
                                        :unsynchronized-mutable true})]
 
-        xf-invoke-first (let []
-                          (if (= 'Object buf-type)
-                            `(~'xf ~'buf (.first ~'c))
-                            (concat
-                              [(if (= rf-arg-type 'Object)
-                                 '.invoke
-                                 '.invokePrim)
-                               'xf
-                               'buf]
-                              [(cond->> (condp = input-type
-                                          'long `(.firstLong ~'c)
-                                          'double `(.firstDouble ~'c)
-                                          'Object `(.first ~'c))
-                                 ;; If the input type doesn't match the
-                                 ;; xf input arg type, then cast it.
-                                 (not= buf-type input-type)
-                                 (list (condp = buf-type
-                                         'long 'clojure.lang.RT/longCast
-                                         'double 'clojure.lang.RT/doubleCast)))])))
+        xf-invoke-first (if (= 'Object buf-type)
+                          `(~'xf ~'buf (.first ~'c))
+                          (concat
+                            [(if (= rf-arg-type 'Object)
+                               '.invoke
+                               '.invokePrim)
+                             'xf
+                             'buf]
+                            [(cond->> (condp = input-type
+                                        'long `(.firstLong ~'c)
+                                        'double `(.firstDouble ~'c)
+                                        'Object `(.first ~'c))
+                               ;; If the input type doesn't match the
+                               ;; xf input arg type, then cast it.
+                               (not= buf-type input-type)
+                               (list (condp = buf-type
+                                       'long 'clojure.lang.RT/longCast
+                                       'double 'clojure.lang.RT/doubleCast)))]))
 
         xf-invoke-chunk (if (= 'Object buf-type)
                           `(~'xf ~'buf (.nth ~'chunk ~'i))
@@ -380,7 +379,7 @@
 
 (deftype InitXFSeq [xf coll]
   clojure.lang.IFn
-  (invoke [this]
+  (invoke [_this]
     (when-some [s (condp satisfies? coll
                     p/ILongSeqable (p/long-seq coll)
                     p/IDoubleSeqable (p/double-seq coll)
@@ -609,7 +608,7 @@
 
 (def double-add (fn ^double [^double a ^double b] (clojure.lang.Numbers/add a b)))
 
-(def double-inc (fn ^double [^double l] (clojure.lang.Numbers/add l (double 1.0))))
+(def double-inc (fn ^double [^double l] (clojure.lang.Numbers/add l 1.0)))
 
 (def double-even? (fn [^double l] (long-even? (long (Math/round l)))))
 

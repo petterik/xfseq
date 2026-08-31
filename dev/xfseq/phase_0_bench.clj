@@ -23,6 +23,8 @@
     [xfseq LongCons DoubleCons]
     [xfseq.buffer ObjectBuffer LongBuffer DoubleBuffer]))
 
+(set! *warn-on-reflection* true)
+
 (def preservation-sha
   "The immutable source identity used by every Phase 0 report."
   "168ce02f2dcb796045990fe1647205f4da20c1f5")
@@ -130,7 +132,7 @@
 
     [:double :chunked] (p/double-seq (double-array [1.0 2.0]))
     [:double :mixed] (p/double-seq (double-array [1.0 2.0]))
-    [:double :dechunked] (DoubleCons. (double 1.0) (DoubleCons. (double 2.0) nil))))
+    [:double :dechunked] (DoubleCons. 1.0 (DoubleCons. 2.0 nil))))
 
 (defn buffer-for [argument-type]
   (case argument-type
@@ -337,7 +339,7 @@
     :asm-key-count (count (clj/filter #(= :asm (:kind %)) registry))
     :stable-id-count (count (set (clj/map :stable-id registry)))))
 
-(defn ^Constructor constructor-for [class-name]
+(defn constructor-for ^Constructor [class-name]
   (let [klass (Class/forName class-name)
         constructors (.getConstructors klass)]
     (when-not (= 1 (alength constructors))
@@ -522,8 +524,9 @@
                (re-pattern (java.util.regex.Pattern/quote
                              java.io.File/pathSeparator)))))
 
-(defn inferred-command [options]
+(defn inferred-command
   "Reconstruct the exact no-wrapper Java invocation when --command is omitted."
+  [options]
   (let [java (str (io/file (System/getProperty "java.home") "bin" "java"))
         jvm-flags (vec (.getInputArguments
                          (ManagementFactory/getRuntimeMXBean)))
