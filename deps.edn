@@ -11,6 +11,12 @@
                 {:git/tag "v0.5.1"
                  :git/sha "dfb30dd6605cb6c0efc275e1df1736f6e90d4d73"}}
    :main-opts ["-m" "cognitect.test-runner"]}
+  :lint
+  {:extra-paths ["dev"]
+   :extra-deps {clj-kondo/clj-kondo {:mvn/version "2026.05.25"}}}
+  :reflection
+  {:extra-paths ["dev" "test"]
+   :extra-deps {criterium/criterium {:mvn/version "0.4.6"}}}
   :bench
   {:extra-paths ["test"]
    :extra-deps {criterium/criterium {:mvn/version "0.4.6"}}

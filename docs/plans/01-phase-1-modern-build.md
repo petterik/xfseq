@@ -2,9 +2,10 @@
 
 Status: In progress
 
-Stage: plan complete; pre-implementation gate passed; Slice 1 checkpoint
+Stage: plan complete; pre-implementation gate passed; Slice 2 worker checkpoint
 
-Run stage: Slice 1 complete; Slice 2 not started; final review: not started.
+Run stage: Slice 1 complete; Slice 2 worker complete; parent integration and
+fresh-worktree proof pending; final review: not started.
 
 Last updated: 2026-08-31
 
@@ -86,9 +87,10 @@ whether to continue; it cannot support an upstream compatibility claim.
 - Pinned clj-kondo 2026.05.25 runs on the JVM. Under the chosen active-code
   boundary it currently returns 25 findings: 20 warnings and 5 informational
   findings.
-- Two additional clj-kondo errors come from valid dynamic array-class positions
-  inside `extend-protocol`; a call-scoped rule for only `:syntax` and
-  `:unresolved-symbol` removes those two errors without rewriting runtime code.
+- Dynamic array-class positions inside `extend-protocol` produce false
+  positives. A call-scoped rule handles `:syntax` and `:unresolved-symbol`;
+  each of the two forms locally suppresses `:unresolved-protocol-method`
+  without rewriting runtime code.
 - Historical `comment` forms contain stale interactive scratch code. They are
   non-executable and are excluded with `:skip-comments true`.
 
@@ -143,8 +145,9 @@ oracle.
 Selected optional linters are `:warn-on-reflection`, `:unused-alias`,
 `:used-underscored-binding`, `:missing-protocol-method-arity`, and
 `:unused-value`. Default active-code linters remain enabled. The only
-suppression is the call-scoped `extend-protocol` rule; historical `comment`
-bodies are skipped. No namespace/file-wide ignore is allowed.
+suppressions are limited to the call-scoped `extend-protocol` rule and the two
+dynamic array forms; historical `comment` bodies are skipped. No namespace or
+file ignore is allowed.
 
 ### Benchmark linking
 
@@ -302,6 +305,9 @@ the bench alias; and observed the deliberate child exit 23 propagate as exit
 23. `git diff --check` passes and the accepted diff changes no `src/`,
 `src-java/`, `test/`, README, lint, reflection, or result file.
 
+Accepted Slice 1 checkpoint commit: `9aa01fb` (`Build and test xfseq
+locally`). It was not pushed.
+
 ### Slice 2: quality gates and local proof
 
 Ownership: clj-kondo config, lint/reflection entry points, minimal active
@@ -312,10 +318,62 @@ Phase 1 validation results, and remaining plan entries.
 2. Make behavior-neutral active-code fixes; add no broad ignores.
 3. Complete `clojure -Srepro -T:build check`.
 4. Rerun tests and Phase 0 characterization.
-5. Run the command once in a fresh detached worktree on the exact local
-   runtime; retain the raw log above and record its result here.
-6. Audit the exit criteria and mark the plan `Awaiting final review`. Do not
-   add CI, another runtime, off linking, or Phase 2 work.
+5. Prepare the parent handoff for one post-commit fresh detached-worktree run
+   on the exact local runtime; retain the raw log above and record its result
+   only after that run.
+6. Audit the slice-owned criteria and leave the plan at this Slice 2
+   checkpoint. The parent marks the plan `Awaiting final review` only after the
+   detached proof and integration review. Do not add CI, another runtime, off
+   linking, or Phase 2 work.
+
+#### Slice 2 worker validation checkpoint
+
+Runtime: Clojure 1.12.5 (CLI 1.12.5.1664), OpenJDK 26.0.2.1 (Homebrew, arm64).
+No Java source or sequence semantics changed; the active Clojure cleanup is
+limited to unused imports/requires and bindings, metadata/docstring placement,
+and provably redundant forms/coercions.
+
+- Added pinned clj-kondo 2026.05.25 and the JVM compiler reflection entry
+  point. `clojure -Srepro -T:build check` -> exit 0: Java clean/compile,
+  clj-kondo errors 0/warnings 0, compiler reflection check passed, and the
+  discovered suite ran 1 test/46 assertions with 0 failures and 0 errors.
+- The lint API negative control with an unused alias -> expected nonzero exit;
+  the wrapper reported active findings. The compiler negative control with an
+  unresolved `.toString` call -> expected nonzero exit and emitted a compiler
+  `Reflection warning`.
+- Standalone `clojure -Srepro -M:test` -> exit 0; 1 test/46 assertions,
+  0 failures, 0 errors. The clean build produces exactly 30 class files under
+  `target/classes`; every class has major version 52 and no class files occur
+  elsewhere in the checkout.
+- The direct-linking smoke on `:bench` reports
+  `{:clojure 1.12.5, :direct-linking true, :criterium criterium.core}`. The
+  Phase 0 characterization rerun has the same 1/46/0/0 summary, all nine
+  historical difference labels, and the same clean-load
+  `ClassNotFoundException` for `xfseq.ILongSeq`; no characterization drift was
+  observed. `git diff --check` passes.
+- The two dynamic array `extend-protocol` forms retain their runtime shape.
+  Call-scoped config suppresses their syntax/unresolved-symbol false positives;
+  the two forms locally suppress `:unresolved-protocol-method`, which
+  clj-kondo reports against the dynamic `(class <primitive-array>)` protocol
+  type. No namespace or file ignore was added.
+
+The reserved raw-evidence path remains
+`results/phase-1/validation/fresh-worktree-check.stdout`. This worker did not
+run or claim the post-commit detached-worktree proof; the parent owns that
+run, its raw log, and the final-review transition.
+
+Parent integration inspected every active Clojure edit. The changes remove
+unused imports/requires/bindings, move metadata/docstrings to their intended
+positions, and remove redundant `do`/numeric coercions; no Java or sequence
+algorithm changed. The parent independently ran the full `check`, standalone
+lint, and standalone reflection commands sequentially; all passed. A fresh
+Phase 0 characterization report at
+`/private/tmp/xfseq-phase1-parent-char.99OX9v/current.edn` retained the exact
+1/46/0/0 summary and all nine classification/difference-label pairs; its clean
+classpath child exited 1 with `ClassNotFoundException: xfseq.ILongSeq`.
+Removing the two form-local ignores reproduced exactly two
+`:unresolved-protocol-method` false positives; call-scoped configuration could
+not suppress them, so the narrow form-local exceptions were retained.
 
 Parent check: inspect every Clojure diff, independently run lint/reflection and
 the full fresh-worktree check, parse the evidence, run `git diff --check`, and
@@ -384,6 +442,7 @@ diagnostics remain separate and optional until then.
 | 2026-08-31 | Compile with `--release 8 -Xlint:-options`. | Preserves Clojure-compatible bytecode without importing serialization cleanup. |
 | 2026-08-31 | Use pinned test-runner and clj-kondo JVM API. | Standard discovery and a real all-severity lint gate. |
 | 2026-08-31 | Compiler output remains the reflection authority. | Static lint cannot prove emitted code is reflection-free. |
+| 2026-08-31 | Keep two form-local `:unresolved-protocol-method` suppressions on the dynamic primitive-array `extend-protocol` forms. | Removing them reproducibly leaves exactly two clj-kondo false positives; call-scoped configuration does not suppress those findings, and rewriting valid runtime code would enlarge Phase 1. |
 | 2026-08-31 | Do not add JMH in Phase 1. | A benchmark harness has value only after a correct candidate exists. |
 
 ## Planning validation evidence
@@ -424,8 +483,8 @@ Verdict: revise, then review again.
    Phase 0 summary belong in this durable plan, so the two generated metadata
    files were removed.
 4. The lint and compiler-reflection checks are not redundant: one is static
-   policy and the other is the compiler oracle. Both remain, with one narrow
-   macro rule and no broad suppression.
+   policy and the other is the compiler oracle. Both remain, with narrow
+   call/form-scoped exceptions and no namespace/file suppression.
 
 ### Review 2: post-revision check
 
@@ -451,7 +510,7 @@ Verdict: **PASS**.
 | Build correctness | Pass. Tracked Java sources, clean output, discovered tests, fatal child failures, lint, and compiler reflection checks are all covered by one command. |
 | Performance validity | Pass for this phase's claim. There is no timing or speed claim; the bench alias only proves a direct-linking-on exploratory entry point. |
 | Simplicity | Pass. One Clojure version, one installed JDK, no CI, one build model, one check command, two slices, and one raw log. |
-| Maintainability | Pass. Dependencies are pinned, suppression is call-scoped, IDE output is removed, and no alternate build path or generated machinery is introduced. |
+| Maintainability | Pass. Dependencies are pinned, suppressions are call/form-scoped, IDE output is removed, and no alternate build path or generated machinery is introduced. |
 | Upstream credibility | Pass as foundation work only. Broader compatibility and release-equivalent forked performance evidence remain mandatory later if the candidate is promising. |
 
 Implementation must return this plan to `Draft` instead of improvising if the
@@ -468,4 +527,5 @@ cannot be reproduced.
 | 2026-08-31 | Plan review 1 | `/root` (`gpt-5.6-sol`, high) | Applied confidence, prioritization, and review-plan checks to the revised scope. | Removed duplicate final validation and two unnecessary metadata artifacts. |
 | 2026-08-31 | Plan review 2 | `/root` (`gpt-5.6-sol`, high) | Rechecked the material redesign for scope, evidence, ordering, and unresolved assumptions. | Pass; no unresolved finding. |
 | 2026-08-31 | Pre-implementation review | `/root` (`gpt-5.6-sol`, high) | Applied the strict semantic, build, performance, simplicity, maintainability, and upstream gate. | Pass; ready for Phase 1 run only. |
-| 2026-08-31 | Slice 1 implementation | `/root/phase1_slice1` (`gpt-5.6-luna`, `luna_worker`) | Added Clojure 1.12.5 dependencies and pinned build/test/bench/dev aliases; added tools.build clean/javac/discovered-test/check tasks with explicit child failure propagation. | Worker and parent validation passed: 27 Java sources -> 30 class files (major 52), discovered suite 1/46/0/0, direct-linking-on bench smoke, and failure negative control; checkpoint commit pending. |
+| 2026-08-31 | Slice 1 implementation | `/root/phase1_slice1` (`gpt-5.6-luna`, `luna_worker`) | Added Clojure 1.12.5 dependencies and pinned build/test/bench/dev aliases; added tools.build clean/javac/discovered-test/check tasks with explicit child failure propagation. | Worker and parent validation passed: 27 Java sources -> 30 class files (major 52), discovered suite 1/46/0/0, direct-linking-on bench smoke, and failure negative control. Accepted checkpoint: `9aa01fb`; not pushed. |
+| 2026-08-31 | Slice 2 implementation | `/root/phase1_slice2` (`gpt-5.6-luna`, `luna_worker`) | Added pinned all-severity clj-kondo and compiler-authoritative reflection gates, integrated both into `check`, applied minimal behavior-neutral active Clojure cleanup, documented the local command, and prepared the fresh-worktree evidence handoff. | Worker-local checks passed. Parent reviewed every Clojure edit, corrected suppression documentation, and independently passed full check, sequential lint/reflection, Phase 0 no-drift, and diff hygiene. Checkpoint commit pending; detached proof and final review remain pending. |

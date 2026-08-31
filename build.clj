@@ -26,7 +26,16 @@
 (defn test [_]
   (process! ["clojure" "-Srepro" "-M:test"]))
 
+(defn lint [_]
+  (process! ["clojure" "-Srepro" "-M:lint" "-m" "xfseq.phase-1-lint"]))
+
+(defn reflection [_]
+  (process! ["clojure" "-Srepro" "-M:reflection" "-m"
+             "xfseq.phase-1-reflection"]))
+
 (defn check [_]
   (clean nil)
   (javac nil)
+  (lint nil)
+  (reflection nil)
   (test nil))
