@@ -1,10 +1,10 @@
 # Implementation #1, Phase 1: modern local build
 
-Status: Ready for implementation
+Status: In progress
 
-Stage: plan complete; pre-implementation gate passed
+Stage: plan complete; pre-implementation gate passed; Slice 1 checkpoint
 
-Run stage: not started; final review: not started.
+Run stage: Slice 1 complete; Slice 2 not started; final review: not started.
 
 Last updated: 2026-08-31
 
@@ -270,6 +270,38 @@ Parent check: remove ignored output, independently run clean/javac/test, inspect
 the class files, verify failure propagation, and confirm no semantic source or
 Java change.
 
+#### Slice 1 validation checkpoint
+
+Runtime: Clojure 1.12.5 (CLI 1.12.5.1664), OpenJDK 26.0.2.1 (Homebrew,
+arm64). No Clojure or Java source semantics changed.
+
+- `clojure -Srepro -T:build clean` -> exit 0.
+- `clojure -Srepro -T:build javac` -> exit 0.
+- `clojure -Srepro -M:test` -> exit 0; Cognitect runner discovered `test`,
+  ran 1 test and 46 assertions, with 0 failures and 0 errors.
+- `clojure -Srepro -T:build check` -> exit 0; clean, javac, and discovered
+  tests completed in that order.
+- `find target/classes -type f -name '*.class' | wc -l` -> 30; all output is
+  under `target/classes`, no class files exist elsewhere in the checkout, and
+  `javap -verbose` reports major version 52 for every class.
+- Failure negative control:
+  `clojure -Srepro -M:build -e '(load-file "build.clj") (with-redefs [build/test (fn [_] (build/process! ["/bin/sh" "-c" "exit 23"]))] (build/check nil))'`
+  -> the composed check exits 1 with uncaught `Child process failed`; a
+  caught helper probe reports `{:command-args [/bin/sh -c exit 23], :exit 23}`.
+- `clojure -Srepro -M:bench -e '(require (quote criterium.core)) ...'` ->
+  Criterium 0.4.6 resolved and `:direct-linking` is `true`.
+
+The first clean task resolution populated the local Maven/git dependency
+caches. No lint, reflection, README, evidence artifact, or semantic cleanup
+was performed; those remain Slice 2 ownership.
+
+Parent integration independently reran `clean`, `javac`, `test`, and the full
+`check`; inspected all 30 class files and major version 52; found no class file
+outside `target/classes`; confirmed Clojure 1.12.5 with direct linking true in
+the bench alias; and observed the deliberate child exit 23 propagate as exit
+23. `git diff --check` passes and the accepted diff changes no `src/`,
+`src-java/`, `test/`, README, lint, reflection, or result file.
+
 ### Slice 2: quality gates and local proof
 
 Ownership: clj-kondo config, lint/reflection entry points, minimal active
@@ -436,3 +468,4 @@ cannot be reproduced.
 | 2026-08-31 | Plan review 1 | `/root` (`gpt-5.6-sol`, high) | Applied confidence, prioritization, and review-plan checks to the revised scope. | Removed duplicate final validation and two unnecessary metadata artifacts. |
 | 2026-08-31 | Plan review 2 | `/root` (`gpt-5.6-sol`, high) | Rechecked the material redesign for scope, evidence, ordering, and unresolved assumptions. | Pass; no unresolved finding. |
 | 2026-08-31 | Pre-implementation review | `/root` (`gpt-5.6-sol`, high) | Applied the strict semantic, build, performance, simplicity, maintainability, and upstream gate. | Pass; ready for Phase 1 run only. |
+| 2026-08-31 | Slice 1 implementation | `/root/phase1_slice1` (`gpt-5.6-luna`, `luna_worker`) | Added Clojure 1.12.5 dependencies and pinned build/test/bench/dev aliases; added tools.build clean/javac/discovered-test/check tasks with explicit child failure propagation. | Worker and parent validation passed: 27 Java sources -> 30 class files (major 52), discovered suite 1/46/0/0, direct-linking-on bench smoke, and failure negative control; checkpoint commit pending. |
