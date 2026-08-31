@@ -1,11 +1,10 @@
 # Implementation #1, Phase 1: modern local build
 
-Status: In progress
+Status: Awaiting final review
 
-Stage: plan complete; pre-implementation gate passed; Slice 2 worker checkpoint
+Stage: run complete; final review required
 
-Run stage: Slice 1 complete; Slice 2 worker complete; parent integration and
-fresh-worktree proof pending; final review: not started.
+Run stage: complete; final review: not started.
 
 Last updated: 2026-08-31
 
@@ -375,6 +374,28 @@ Removing the two form-local ignores reproduced exactly two
 `:unresolved-protocol-method` false positives; call-scoped configuration could
 not suppress them, so the narrow form-local exceptions were retained.
 
+Accepted Slice 2 checkpoint commit: `738a787d9802517ff3a8ac7a822fc633a11d5e68`
+(`Add local quality gates`). It was not pushed.
+
+#### Fresh detached-worktree acceptance
+
+The parent created a temporary detached worktree at the exact Slice 2 commit,
+ran `clojure -Srepro -T:build check`, performed the planned class/linking
+inspections, captured the combined output, and removed the worktree.
+
+- Runtime: Homebrew OpenJDK 26.0.2.1, arm64; Clojure CLI 1.12.5.1664;
+  Clojure library 1.12.5.
+- Full check: exit 0; clj-kondo errors 0/warnings 0; compiler reflection check
+  passed; discovered suite 1 test/46 assertions/0 failures/0 errors.
+- Java output: exactly 30 class files, all major version 52, with zero class
+  files outside `target/classes`.
+- Bench smoke: Clojure 1.12.5, direct linking true, Criterium 0.4.6 loaded.
+- Raw log: [`fresh-worktree-check.stdout`](../../results/phase-1/validation/fresh-worktree-check.stdout),
+  3,581 bytes, SHA-256
+  `bdac853b9dcf078b8b6a3e629397e066a4ba22592eeb982e8f98fbabf985f0d2`.
+- No CI, alternate runtime, off-linked lane, timing run, Java algorithm edit,
+  or Phase 2 work was introduced.
+
 Parent check: inspect every Clojure diff, independently run lint/reflection and
 the full fresh-worktree check, parse the evidence, run `git diff --check`, and
 confirm scope.
@@ -428,6 +449,23 @@ diagnostics remain separate and optional until then.
 11. Commands, pins, result paths, decisions, slice SHAs, and agent runs are
     recorded here.
 12. The run ends at `Awaiting final review`; Phase 2 does not start.
+
+### Run-stage exit audit
+
+| Criterion | Result |
+|---|---|
+| 1. Clojure/dependency paths | Pass: Clojure 1.12.5, qualified coordinates, and `target/classes`; no IDE output path. |
+| 2. Fresh one-command check | Pass at detached commit `738a787d9802517ff3a8ac7a822fc633a11d5e68`; raw log retained above. |
+| 3. Java output | Pass: 30 class files, major version 52, only under `target/classes`. |
+| 4. Discovered tests | Pass: 1 test, 46 assertions, 0 failures, 0 errors. |
+| 5. clj-kondo | Pass: pinned 2026.05.25 returns no findings; no namespace/file ignore. |
+| 6. Compiler reflection | Pass: compiler-authoritative reload emits no reflection warning. |
+| 7. Linking | Pass: bench alias reports direct linking true; no off/timing lane. |
+| 8. Phase 0 characterization | Pass: exact suite summary and all nine historical labels retained; direct Clojure remains the oracle. No retained Java candidate is yet semantically equivalent, so a fastest-correct-candidate performance comparison is not applicable to this build-only phase. |
+| 9. Documentation/evidence | Pass: README documents the command/runtime boundary; one checksummed raw log is retained. |
+| 10. Scope/diff hygiene | Pass: `git diff --check`; no CI, compatibility matrix, Java-loop repair, or later-phase implementation. |
+| 11. Durable run state | Pass: pins, commands/results, decisions, raw path, both checkpoint SHAs, and sequential worker runs are recorded. |
+| 12. Handoff | Pass: status is `Awaiting final review`; Phase 2 has not started. |
 
 ## Decision log
 
@@ -528,4 +566,6 @@ cannot be reproduced.
 | 2026-08-31 | Plan review 2 | `/root` (`gpt-5.6-sol`, high) | Rechecked the material redesign for scope, evidence, ordering, and unresolved assumptions. | Pass; no unresolved finding. |
 | 2026-08-31 | Pre-implementation review | `/root` (`gpt-5.6-sol`, high) | Applied the strict semantic, build, performance, simplicity, maintainability, and upstream gate. | Pass; ready for Phase 1 run only. |
 | 2026-08-31 | Slice 1 implementation | `/root/phase1_slice1` (`gpt-5.6-luna`, `luna_worker`) | Added Clojure 1.12.5 dependencies and pinned build/test/bench/dev aliases; added tools.build clean/javac/discovered-test/check tasks with explicit child failure propagation. | Worker and parent validation passed: 27 Java sources -> 30 class files (major 52), discovered suite 1/46/0/0, direct-linking-on bench smoke, and failure negative control. Accepted checkpoint: `9aa01fb`; not pushed. |
-| 2026-08-31 | Slice 2 implementation | `/root/phase1_slice2` (`gpt-5.6-luna`, `luna_worker`) | Added pinned all-severity clj-kondo and compiler-authoritative reflection gates, integrated both into `check`, applied minimal behavior-neutral active Clojure cleanup, documented the local command, and prepared the fresh-worktree evidence handoff. | Worker-local checks passed. Parent reviewed every Clojure edit, corrected suppression documentation, and independently passed full check, sequential lint/reflection, Phase 0 no-drift, and diff hygiene. Checkpoint commit pending; detached proof and final review remain pending. |
+| 2026-08-31 | Slice 2 implementation | `/root/phase1_slice2` (`gpt-5.6-luna`, `luna_worker`) | Added pinned all-severity clj-kondo and compiler-authoritative reflection gates, integrated both into `check`, applied minimal behavior-neutral active Clojure cleanup, documented the local command, and prepared the fresh-worktree evidence handoff. | Worker-local checks passed. Parent reviewed every Clojure edit, corrected suppression documentation, and independently passed full check, sequential lint/reflection, Phase 0 no-drift, and diff hygiene. Accepted as checkpoint `738a787d9802517ff3a8ac7a822fc633a11d5e68`; detached proof subsequently passed; final review remains pending. |
+| 2026-08-31 | Slice 2 parent integration | `/root` (`gpt-5.6-sol`, medium) | Accepted Slice 2 after reviewing every Clojure edit and retaining two proven form-local lint false-positive exceptions. | Checkpoint `738a787d9802517ff3a8ac7a822fc633a11d5e68`; not pushed. |
+| 2026-08-31 | Run-stage acceptance | `/root` (`gpt-5.6-sol`, medium) | Ran the full check and class/linking audit from a temporary detached worktree at the Slice 2 commit; retained one checksummed raw log and audited all 12 exit criteria. | Run stage passed; plan marked `Awaiting final review`. No Phase 2 work started. |
