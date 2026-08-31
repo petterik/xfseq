@@ -1,0 +1,12 @@
+{:skip-comments true
+ :config-in-call
+ {clojure.core/extend-protocol
+  {:linters {:syntax {:level :off}
+             :unresolved-symbol {:level :off}}}}
+ :linters {:warn-on-reflection {:level :warning}
+           :unused-alias {:level :warning}
+           :used-underscored-binding {:level :warning}
+           :missing-protocol-method-arity {:level :warning}
+           :unused-value {:level :warning}}
+ :output {:format :text
+          :summary true}}

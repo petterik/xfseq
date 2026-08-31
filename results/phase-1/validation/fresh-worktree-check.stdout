@@ -1,0 +1,51 @@
+phase=1 fresh detached-worktree validation
+commit=738a787d9802517ff3a8ac7a822fc633a11d5e68
+command=clojure -Srepro -T:build check
+working-directory=/private/tmp/xfseq-phase1-fresh.dckZIb
+architecture=arm64
+openjdk version "26.0.2.1" 2026-08-18
+OpenJDK Runtime Environment Homebrew (build 26.0.2.1)
+OpenJDK 64-Bit Server VM Homebrew (build 26.0.2.1, mixed mode, sharing)
+{:version "1.12.5.1664"
+ :config-files ["/opt/homebrew/Cellar/clojure/1.12.5.1664/deps.edn" "/Users/petter/.clojure/deps.edn" "deps.edn" ]
+ :config-user "/Users/petter/.clojure/deps.edn"
+ :config-project "deps.edn"
+ :install-dir "/opt/homebrew/Cellar/clojure/1.12.5.1664"
+ :config-dir "/Users/petter/.clojure"
+ :cache-dir ".cpcache"
+ :force false
+ :repro false
+ :main-aliases ""
+ :repl-aliases ""}
+linting took 340ms, errors: 0, warnings: 0
+"classes: " ([Object clojure.lang.Symbol] [long clojure.lang.Symbol] [clojure.lang.IFn$OLO java.lang.Class] [long clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [long clojure.lang.Symbol] [clojure.lang.IFn$OLO java.lang.Class] [double clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [long clojure.lang.Symbol] [clojure.lang.IFn$OLO java.lang.Class] [Object clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [double clojure.lang.Symbol] [clojure.lang.IFn$ODO java.lang.Class] [long clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [double clojure.lang.Symbol] [clojure.lang.IFn$ODO java.lang.Class] [double clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [double clojure.lang.Symbol] [clojure.lang.IFn$ODO java.lang.Class] [Object clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [Object clojure.lang.Symbol] [clojure.lang.IFn java.lang.Class] [long clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [Object clojure.lang.Symbol] [clojure.lang.IFn java.lang.Class] [double clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [Object clojure.lang.Symbol] [clojure.lang.IFn java.lang.Class] [Object clojure.lang.Symbol])
+Compiler reflection check passed.
+
+Running tests in #{"test"}
+"classes: " ([Object clojure.lang.Symbol] [long clojure.lang.Symbol] [clojure.lang.IFn$OLO java.lang.Class] [long clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [long clojure.lang.Symbol] [clojure.lang.IFn$OLO java.lang.Class] [double clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [long clojure.lang.Symbol] [clojure.lang.IFn$OLO java.lang.Class] [Object clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [double clojure.lang.Symbol] [clojure.lang.IFn$ODO java.lang.Class] [long clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [double clojure.lang.Symbol] [clojure.lang.IFn$ODO java.lang.Class] [double clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [double clojure.lang.Symbol] [clojure.lang.IFn$ODO java.lang.Class] [Object clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [Object clojure.lang.Symbol] [clojure.lang.IFn java.lang.Class] [long clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [Object clojure.lang.Symbol] [clojure.lang.IFn java.lang.Class] [double clojure.lang.Symbol])
+"classes: " ([Object clojure.lang.Symbol] [Object clojure.lang.Symbol] [clojure.lang.IFn java.lang.Class] [Object clojure.lang.Symbol])
+
+Testing xfseq.core-test
+
+Ran 1 tests containing 46 assertions.
+0 failures, 0 errors.
+class-count=30
+  30   major version: 52
+classes-outside-target=0
+{:clojure "1.12.5", :direct-linking true, :criterium "criterium.core"}
+exit-status=0

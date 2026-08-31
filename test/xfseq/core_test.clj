@@ -1,5 +1,5 @@
 (ns xfseq.core-test
-  (:require [clojure.test :as test :refer [deftest is are testing]]
+  (:require [clojure.test :refer [deftest is are testing]]
             [xfseq.core :as core]
             [xfseq.gen :as gen]))
 
@@ -24,7 +24,7 @@
   (let [objs (repeat size (Long. 2))
         v-objs (vec objs)
 
-        rang (range 0 (long size))
+        rang (range 0 size)
         v-rang (vec rang)
         s-rang (set rang)
 

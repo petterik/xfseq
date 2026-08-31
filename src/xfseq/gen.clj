@@ -4,7 +4,7 @@
     [xfseq.protocols :as p]
     [xfseq.analyze :as ana])
   (:import
-    [clojure.asm ClassWriter FieldVisitor MethodVisitor AnnotationVisitor Opcodes Type Label]))
+    [clojure.asm ClassWriter MethodVisitor Opcodes Type Label]))
 
 (set! *warn-on-reflection* true)
 

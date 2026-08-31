@@ -12,6 +12,8 @@
     [xfseq.gen :as asm]
     [clojure.core :as clj]))
 
+(set! *warn-on-reflection* true)
+
 (def preservation-sha
   "168ce02f2dcb796045990fe1647205f4da20c1f5")
 

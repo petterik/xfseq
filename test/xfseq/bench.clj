@@ -10,7 +10,7 @@
   (let [objs (repeat size (Long. 2))
         v-objs (vec objs)
 
-        rang (range 0 (long size))
+        rang (range 0 size)
         v-rang (vec rang)
         s-rang (set rang)
 
@@ -63,22 +63,21 @@
       (prn "")
       (prn "=================="))
 
-    (do
-      (prn "Start xfseq.gen")
-      (prn "")
+    (prn "Start xfseq.gen")
+    (prn "")
 
       ;; xfseq asm gen with xfseq transducers
-     (doseq [[id coll f] bench]
-       (prn "Start: " id)
-       (crit/bench
-         (reduce nil-rf nil (gen/xf-seq (core/map f) coll)))
-       (prn ""))
+    (doseq [[id coll f] bench]
+      (prn "Start: " id)
+      (crit/bench
+        (reduce nil-rf nil (gen/xf-seq (core/map f) coll)))
+      (prn ""))
 
-      (prn "End xfseq.gen")
-      (prn "")
-      (prn "=================="))))
+    (prn "End xfseq.gen")
+    (prn "")
+    (prn "==================")))
 
-(defn -main [& args]
+(defn -main [& _args]
   (run-bench))
 
 (comment
