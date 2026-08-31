@@ -459,12 +459,19 @@ can be simplified aggressively.
   benchmark build aliases.
 - Use qualified dependency coordinates.
 - Add a single command that builds Java and runs all tests from a clean clone.
-- Enable reflection warnings and fail CI on unexpected reflection warnings.
+- Add a pinned clj-kondo task with checked-in configuration over `src`, `dev`,
+  and `test`; enable the useful optional linters deliberately, document narrow
+  suppressions, and fail CI on findings.
+- Enable Clojure compiler reflection warnings and fail CI on unexpected
+  reflection warnings. Clj-kondo must enforce that reflection warnings are
+  enabled, but compiler output remains the authority for actual reflection
+  sites.
 - Run CI on Java 17, 21, and 25; optionally include the current Clojure 1.13
   prerelease as an allowed experimental job.
 
-Exit criterion: a fresh checkout can run tests without IDE-produced class
-files.
+Exit criterion: a fresh checkout can lint, compile, and run tests with one
+documented command, without IDE-produced class files, clj-kondo findings, or
+unexpected compiler reflection warnings.
 
 ### Phase 2: object-only engine
 
@@ -831,6 +838,7 @@ call out all statistically credible regressions.
 - Empty completion, reduction, stateful, and expanding transforms pass.
 - Complete `map` arities are implemented.
 - Differential value and realization suites pass on Java 17, 21, and 25.
+- Clj-kondo passes over `src`, `dev`, and `test` with checked-in configuration.
 - No unexpected reflection warnings.
 - No runtime code generation on the #1 path.
 

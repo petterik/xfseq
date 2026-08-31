@@ -1,0 +1,268 @@
+Phase 0 historical timing snapshot
+lane= historical-on fork= 3
+case= core-direct / objs
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 255 in 3 samples of 85 calls.
+      Execution time sample mean : 302.972220 µs
+             Execution time mean : 300.607027 µs
+Execution time sample std-deviation : 7.126982 µs
+    Execution time std-deviation : 7.126982 µs
+   Execution time lower quantile : 295.834800 µs ( 2.5%)
+   Execution time upper quantile : 309.376022 µs (97.5%)
+case= core-direct / v-objs
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 1269 in 3 samples of 423 calls.
+      Execution time sample mean : 59.962963 µs
+             Execution time mean : 59.832645 µs
+Execution time sample std-deviation : 523.352255 ns
+    Execution time std-deviation : 372.616131 ns
+   Execution time lower quantile : 59.487196 µs ( 2.5%)
+   Execution time upper quantile : 60.471724 µs (97.5%)
+case= core-direct / rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 999 in 3 samples of 333 calls.
+      Execution time sample mean : 75.833125 µs
+             Execution time mean : 75.775150 µs
+Execution time sample std-deviation : 198.756955 ns
+    Execution time std-deviation : 198.756955 ns
+   Execution time lower quantile : 75.626754 µs ( 2.5%)
+   Execution time upper quantile : 76.003447 µs (97.5%)
+case= core-direct / v-rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 1053 in 3 samples of 351 calls.
+      Execution time sample mean : 74.577358 µs
+             Execution time mean : 74.298869 µs
+Execution time sample std-deviation : 1.260540 µs
+    Execution time std-deviation : 1.260540 µs
+   Execution time lower quantile : 73.204060 µs ( 2.5%)
+   Execution time upper quantile : 75.557857 µs (97.5%)
+case= core-direct / s-rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 159 in 3 samples of 53 calls.
+      Execution time sample mean : 498.075214 µs
+             Execution time mean : 498.007082 µs
+Execution time sample std-deviation : 8.330903 µs
+    Execution time std-deviation : 8.330903 µs
+   Execution time lower quantile : 493.163528 µs ( 2.5%)
+   Execution time upper quantile : 506.967656 µs (97.5%)
+case= core-direct / arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 207 in 3 samples of 69 calls.
+      Execution time sample mean : 370.575686 µs
+             Execution time mean : 370.010865 µs
+Execution time sample std-deviation : 2.033721 µs
+    Execution time std-deviation : 2.033721 µs
+   Execution time lower quantile : 368.440826 µs ( 2.5%)
+   Execution time upper quantile : 372.287872 µs (97.5%)
+case= core-direct / l-arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 192 in 3 samples of 64 calls.
+      Execution time sample mean : 384.083760 µs
+             Execution time mean : 383.664490 µs
+Execution time sample std-deviation : 7.850655 µs
+    Execution time std-deviation : 7.850655 µs
+   Execution time lower quantile : 378.936844 µs ( 2.5%)
+   Execution time upper quantile : 392.410634 µs (97.5%)
+case= core-direct / d-arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 204 in 3 samples of 68 calls.
+      Execution time sample mean : 376.868461 µs
+             Execution time mean : 376.509804 µs
+Execution time sample std-deviation : 801.923753 ns
+    Execution time std-deviation : 801.923753 ns
+   Execution time lower quantile : 375.987132 µs ( 2.5%)
+   Execution time upper quantile : 377.476746 µs (97.5%)
+case= legacy-clj-generated / objs
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 282 in 3 samples of 94 calls.
+      Execution time sample mean : 271.090869 µs
+             Execution time mean : 271.058809 µs
+Execution time sample std-deviation : 1.647916 µs
+    Execution time std-deviation : 1.647916 µs
+   Execution time lower quantile : 269.188830 µs ( 2.5%)
+   Execution time upper quantile : 271.993798 µs (97.5%)
+case= legacy-clj-generated / v-objs
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 1359 in 3 samples of 453 calls.
+      Execution time sample mean : 55.398578 µs
+             Execution time mean : 55.190122 µs
+Execution time sample std-deviation : 407.558768 ns
+    Execution time std-deviation : 407.558768 ns
+   Execution time lower quantile : 54.934971 µs ( 2.5%)
+   Execution time upper quantile : 55.560338 µs (97.5%)
+case= legacy-clj-generated / rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 1971 in 3 samples of 657 calls.
+      Execution time sample mean : 39.037354 µs
+             Execution time mean : 38.864092 µs
+Execution time sample std-deviation : 1.028792 µs
+    Execution time std-deviation : 1.028792 µs
+   Execution time lower quantile : 37.887938 µs ( 2.5%)
+   Execution time upper quantile : 39.772755 µs (97.5%)
+case= legacy-clj-generated / v-rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 1044 in 3 samples of 348 calls.
+      Execution time sample mean : 72.791028 µs
+             Execution time mean : 72.651141 µs
+Execution time sample std-deviation : 342.148381 ns
+    Execution time std-deviation : 342.148381 ns
+   Execution time lower quantile : 72.425167 µs ( 2.5%)
+   Execution time upper quantile : 72.844828 µs (97.5%)
+case= legacy-clj-generated / s-rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 165 in 3 samples of 55 calls.
+      Execution time sample mean : 463.749994 µs
+             Execution time mean : 457.569939 µs
+Execution time sample std-deviation : 24.386043 µs
+    Execution time std-deviation : 24.386043 µs
+   Execution time lower quantile : 441.457564 µs ( 2.5%)
+   Execution time upper quantile : 487.377835 µs (97.5%)
+case= legacy-clj-generated / arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 126 in 3 samples of 42 calls.
+      Execution time sample mean : 643.854833 µs
+             Execution time mean : 636.423611 µs
+Execution time sample std-deviation : 29.468761 µs
+    Execution time std-deviation : 29.468761 µs
+   Execution time lower quantile : 616.958333 µs ( 2.5%)
+   Execution time upper quantile : 672.434375 µs (97.5%)
+case= legacy-clj-generated / l-arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 2649 in 3 samples of 883 calls.
+      Execution time sample mean : 28.262473 µs
+             Execution time mean : 28.262473 µs
+Execution time sample std-deviation : 856.959763 ns
+    Execution time std-deviation : 856.959763 ns
+   Execution time lower quantile : 27.686675 µs ( 2.5%)
+   Execution time upper quantile : 29.177617 µs (97.5%)
+case= legacy-clj-generated / d-arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 2856 in 3 samples of 952 calls.
+      Execution time sample mean : 26.444065 µs
+             Execution time mean : 26.364641 µs
+Execution time sample std-deviation : 240.242711 ns
+    Execution time std-deviation : 240.242711 ns
+   Execution time lower quantile : 26.204481 µs ( 2.5%)
+   Execution time upper quantile : 26.660937 µs (97.5%)
+case= legacy-asm / objs
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 297 in 3 samples of 99 calls.
+      Execution time sample mean : 251.838663 µs
+             Execution time mean : 251.352414 µs
+Execution time sample std-deviation : 1.471184 µs
+    Execution time std-deviation : 1.471184 µs
+   Execution time lower quantile : 250.371636 µs ( 2.5%)
+   Execution time upper quantile : 251.830384 µs (97.5%)
+case= legacy-asm / v-objs
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 1704 in 3 samples of 568 calls.
+      Execution time sample mean : 45.006211 µs
+             Execution time mean : 44.913831 µs
+Execution time sample std-deviation : 696.934383 ns
+    Execution time std-deviation : 696.934383 ns
+   Execution time lower quantile : 44.473299 µs ( 2.5%)
+   Execution time upper quantile : 45.728815 µs (97.5%)
+case= legacy-asm / rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 2328 in 3 samples of 776 calls.
+      Execution time sample mean : 32.156662 µs
+             Execution time mean : 31.723994 µs
+Execution time sample std-deviation : 856.653680 ns
+    Execution time std-deviation : 856.653680 ns
+   Execution time lower quantile : 31.511008 µs ( 2.5%)
+   Execution time upper quantile : 31.830487 µs (97.5%)
+case= legacy-asm / v-rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 1293 in 3 samples of 431 calls.
+      Execution time sample mean : 58.117073 µs
+             Execution time mean : 58.117073 µs
+Execution time sample std-deviation : 589.893324 ns
+    Execution time std-deviation : 589.893324 ns
+   Execution time lower quantile : 57.554524 µs ( 2.5%)
+   Execution time upper quantile : 58.697695 µs (97.5%)
+case= legacy-asm / s-rang
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 183 in 3 samples of 61 calls.
+      Execution time sample mean : 416.205601 µs
+             Execution time mean : 416.205601 µs
+Execution time sample std-deviation : 9.966449 µs
+    Execution time std-deviation : 9.966449 µs
+   Execution time lower quantile : 407.658475 µs ( 2.5%)
+   Execution time upper quantile : 426.485616 µs (97.5%)
+case= legacy-asm / arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 285 in 3 samples of 95 calls.
+      Execution time sample mean : 264.446786 µs
+             Execution time mean : 263.849130 µs
+Execution time sample std-deviation : 4.235912 µs
+    Execution time std-deviation : 4.235912 µs
+   Execution time lower quantile : 261.160095 µs ( 2.5%)
+   Execution time upper quantile : 268.823845 µs (97.5%)
+case= legacy-asm / l-arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 2730 in 3 samples of 910 calls.
+      Execution time sample mean : 27.916377 µs
+             Execution time mean : 27.738920 µs
+Execution time sample std-deviation : 400.317910 ns
+    Execution time std-deviation : 400.317910 ns
+   Execution time lower quantile : 27.477565 µs ( 2.5%)
+   Execution time upper quantile : 28.009936 µs (97.5%)
+case= legacy-asm / d-arr
+aarch64 Mac OS X 26.2 16 cpu(s)
+OpenJDK 64-Bit Server VM 26.0.2.1
+Runtime arguments: -Xms2g -Xmx2g -XX:+UseG1GC -Dclojure.compiler.direct-linking=true
+Evaluation count : 2649 in 3 samples of 883 calls.
+      Execution time sample mean : 28.646391 µs
+             Execution time mean : 28.534635 µs
+Execution time sample std-deviation : 173.384996 ns
+    Execution time std-deviation : 173.384996 ns
+   Execution time lower quantile : 28.453189 µs ( 2.5%)
+   Execution time upper quantile : 28.697527 µs (97.5%)
+registry-summary= {:asm-count 54, :asm-key-count 54, :java-count 13, :stable-id-count 71, :top-level-count 4, :total 71}
+unsupported-or-unreachable= []
