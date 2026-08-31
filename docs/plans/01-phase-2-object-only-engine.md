@@ -1,12 +1,12 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Implementation in progress (Slices 1–3 accepted; Slice 3 checkpoint
-commit pending)
+Status: Implementation in progress (Slices 1–3 checkpointed; Slice 4 not
+started)
 
 Stage: plan complete; pre-implementation review passed; Slice 1 implemented,
 accepted, and checkpointed; Slice 2 implemented and accepted by parent
-validation and checkpointed; Slice 3 implemented and accepted by parent
-validation; checkpoint commit pending
+validation and checkpointed; Slice 3 implemented, accepted, and checkpointed;
+Slice 4 not started
 
 Last updated: 2026-09-01
 
@@ -1190,3 +1190,4 @@ Verdict: `ready for implementation`.
 | 2026-09-01 | Slice 3 parent-check follow-up | `/root/phase2_slice3` | Reproduced the parent-reported strict merge failure on JMH `"NaN"`; added profile-aware `merge-smoke`, strict pre-write merge validation, registry regression coverage, explicit non-overwriting smoke run IDs, and dirty-source hashes. | Fresh source-matched `bench-smoke '{:run-id "followup-20260901b"}'` exits 0; durable result/environment paths and hashes are recorded above. Original and intermediate receipts remain unchanged and validate under their appropriate profiles; no screen/decision or production-selection claim. Parent review and checkpoint commit pending. |
 | 2026-09-01 | Slice 3 runner-lifecycle follow-up | `/root/phase2_slice3` | Preserved the parent `parent-20260901` receipts; fixed lingering `clojure.java.shell/sh` agents with `shutdown-agents` in a `finally`; measured fresh validate/environment subprocess termination and ran a final suffixed smoke. | Runner probes exit in 0.58s/0.68s with no lingering process; final `bench-smoke '{:run-id "lifecycle-20260901"}'` exits 0. Parent review and checkpoint commit pending; no screen/decision or production-selection claim. |
 | 2026-09-01 | Slice 3 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected timed paths, applicability, AOT bytecode, result/environment writers, raw receipts, merge-profile isolation, and runner lifecycle; independently built the jar, ran all smoke groups, reproduced both workflow defects, revalidated the final lifecycle receipt, reran the registry test and full check, and ignored the generated clj-kondo cache. | Accepted for checkpoint commit; final smoke and validation helpers terminate cleanly, 19-row identity receipt validates, registry 1 / 5 and normal 29 / 2,906 suites pass, linkage/lint/reflection/hygiene are clean, and no performance decision claim is made. |
+| 2026-09-01 | Slice 3 checkpoint | `/root` (`gpt-5.6-sol`, medium) | Committed the accepted Slice 3 harness, documentation, raw smoke receipts, evidence, and plan updates without pushing. | `ec3670ba9c7fcf8f48221fa0e9d53c52e78cb95e`; Slice 4 may start. |
