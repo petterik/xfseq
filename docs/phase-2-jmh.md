@@ -44,8 +44,43 @@ caller bytecode, then runs three small JMH groups:
 The smoke uses one fork, two 100-ms warmups, two 100-ms measurements, list
 input of size 8, identity workload, and two distinct reduced-aware candidate
 IDs.  It is an identity/output check, not a performance decision.  The screen
-and decision profiles are defined in the benchmark registry for the later
-decision slice; no decision matrix is run by Slice 3.
+and decision validation profiles are defined in the benchmark registry; the
+tools.build task mirrors their execution fields in its isolated build
+namespace. Slice 4 runs the checked-in applicable subsets described below; the
+manifests intentionally do not claim to cover the full Cartesian product.
+
+Run them with an explicit suffix so every raw receipt remains immutable:
+
+```sh
+clojure -Srepro -T:build bench-screen '{:run-id "screen-YYYYMMDD"}'
+clojure -Srepro -T:build bench-decision '{:run-id "decision-YYYYMMDD"}'
+clojure -Srepro -T:build bench-decision-gc '{:run-id "decision-gc-YYYYMMDD"}'
+```
+
+`bench-screen` uses two forks and three one-second warmup/measurement
+iterations. `bench-decision` uses three fresh forks, five one-second
+warmup/measurement iterations, `-Xms2g -Xmx2g -XX:+UseG1GC`, and direct linking
+on. `bench-decision-gc` repeats exactly the decision manifest and JVM settings
+with JMH's separate `-prof gc` profiler; its throughput and allocation metrics
+are not combined with the unprofiled run.
+
+The checked-in `bench/manifests/phase2-screen.edn` contains 25 explicit cells
+(98 expanded identities), covering public, Java candidate, boundary, and
+buffer-policy probes. `bench/manifests/phase2-decision.edn` contains 24
+explicit cells (93 identities) selected from the screen for selection-critical
+and every apparent-reversal follow-up. Each manifest is validated before any fork,
+and merge/validation requires the exact identity set. Java source-specialized
+IDs appear only for their declared list/vector shape; no-reduced IDs remain
+adapter-owned benchmark rows. `Phase2BufferBenchmark`'s `all-chunk` policy is
+benchmark-only and is never silently substituted into production.
+
+The `bench-jit` task reruns five representative direct-on Java cells with one
+fork and captures raw `PrintCompilation`/`PrintInlining` output under
+`results/phase-2/jit/`. It covers the small list identity apparent reversal,
+the selected list traversal, the vector chunked boundary reversal, the added
+vector/33 filter-first reversal, and the vector map no-reduced reversal. JIT
+output is evidence for the structural decision, not a replacement for forked
+timing or GC data.
 
 `xfseq.bench.calls` is compiled AOT with direct linking enabled.  Java calls
 the generated function classes' `invokeStatic` methods rather than generated
@@ -90,4 +125,6 @@ promptly terminating runner after merge, validation, and environment capture.
 The direct-on local lane is the only Phase 2 lane.  It uses the released
 Clojure 1.12.5 library, the installed CLI, and the local OpenJDK runtime.  No
 direct-linking-off, alternate-JDK, CI, or production-selection claim is made
-from this smoke.
+from this smoke.  The same restriction applies to screen, decision, GC, and
+JIT receipts: they are local evidence for the Phase 2 loop/buffer decision and
+do not establish a Phase 3 direct-core adoption claim.

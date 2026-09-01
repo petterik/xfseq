@@ -1,6 +1,7 @@
 (ns build
   (:refer-clojure :exclude [test])
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.string :as str]
             [clojure.tools.build.api :as b]))
@@ -12,6 +13,7 @@
 
 (def bench-class-dir "target/bench/classes")
 (def bench-jar-path "target/bench/xfseq-phase2-jmh.jar")
+(def phase2-manifest-dir "bench/manifests")
 (def bench-basis
   (delay (b/create-basis {:project "deps.edn"
                           :aliases [:bench]})))
@@ -69,7 +71,7 @@
                     {:path (str path)})))
   path)
 
-(defn- smoke-artifact-id
+(defn- artifact-id
   [commit run-id]
   (let [suffix (some-> run-id str str/trim)]
     (when (and (seq suffix)
@@ -79,6 +81,8 @@
     (if (seq suffix)
       (str commit "-" suffix)
       commit)))
+
+(def smoke-artifact-id artifact-id)
 
 (defn- capture-process! [command-args]
   (let [{:keys [exit out err]}
@@ -181,8 +185,241 @@
   [args]
   (capture-process!
     (into ["clojure" "-Srepro" "-M:bench" "-m"
-           "xfseq.bench.runner"]
+          "xfseq.bench.runner"]
           args)))
+
+(def phase2-profile-options
+  {:screen {:forks 2
+            :warmups 3
+            :measurements 3
+            :warmup-time "1s"
+            :measurement-time "1s"
+            :jvm-opts []}
+   :decision {:forks 3
+              :warmups 5
+              :measurements 5
+              :warmup-time "1s"
+              :measurement-time "1s"
+              :jvm-opts ["-Xms2g" "-Xmx2g" "-XX:+UseG1GC"]}
+   :decision-gc {:forks 3
+                 :warmups 5
+                 :measurements 5
+                 :warmup-time "1s"
+                 :measurement-time "1s"
+                 :jvm-opts ["-Xms2g" "-Xmx2g" "-XX:+UseG1GC"]
+                 :profiler "gc"}})
+
+(defn- phase2-manifest-file
+  [profile]
+  (str phase2-manifest-dir "/phase2-"
+       (if (= profile :decision-gc) "decision" (name profile))
+       ".edn"))
+
+(defn- phase2-manifest
+  [profile]
+  (let [file (phase2-manifest-file profile)]
+    (edn/read-string (slurp file))))
+
+(defn- phase2-jmh-command
+  [profile output {:keys [class method params]}]
+  (let [{:keys [forks warmups measurements warmup-time measurement-time
+                jvm-opts profiler]} (get phase2-profile-options profile)
+        include (str "^" (java.util.regex.Pattern/quote class) "\\."
+                     (java.util.regex.Pattern/quote method) "$")
+        jvm-args (str/join " " jvm-opts)
+        fixed (cond-> ["java" "-jar" bench-jar-path
+                       "-f" (str forks)
+                       "-wi" (str warmups)
+                       "-w" warmup-time
+                       "-i" (str measurements)
+                       "-r" measurement-time]
+                (seq jvm-opts) (into ["-jvmArgs" jvm-args])
+                profiler (into ["-prof" profiler]))]
+    (into (into fixed ["-rf" "json" "-rff" output])
+          (concat (mapcat (fn [[name values]]
+                            ["-p" (str name "=" (str/join "," values))])
+                          (sort-by key params))
+                  [include]))))
+
+(defn- phase2-cell-output
+  [temporary index {:keys [id]}]
+  (when-not (and (string? id)
+                 (re-matches #"[A-Za-z0-9][A-Za-z0-9._-]*" id))
+    (throw (ex-info "Invalid Phase 2 manifest cell ID" {:id id})))
+  (str temporary "/" (format "%03d-%s.json" index id)))
+
+(defn- bench-profile
+  [profile {:keys [run-id]}]
+  ;; Every timing profile starts with the complete semantic/build/linkage gate.
+  (check nil)
+  (bench-jar nil)
+  (let [commit (git-commit)
+        run-id (some-> run-id str str/trim)
+        manifest-file (phase2-manifest-file profile)
+        manifest (phase2-manifest profile)
+        artifact (artifact-id commit run-id)
+        prefix (name profile)
+        result (str "results/phase-2/bench/" prefix "-" artifact ".json")
+        environment (str "results/phase-2/environment-" prefix "-"
+                         artifact ".edn")
+        temporary (str (java.nio.file.Files/createTempDirectory
+                         (java.nio.file.Paths/get "/private/tmp"
+                           (make-array String 0))
+                         (str "xfseq-phase2-" prefix "-")
+                         (make-array java.nio.file.attribute.FileAttribute 0)))
+        cells (:cells manifest)
+        outputs (mapv (fn [index cell]
+                       (phase2-cell-output temporary index cell))
+                     (range)
+                     cells)
+        commands (mapv (fn [output cell]
+                         (phase2-jmh-command profile output cell))
+                       outputs cells)
+        _ (ensure-absent! result)
+        _ (ensure-absent! environment)]
+    ;; Parse and applicability-check the checked-in manifest before any fork.
+    (run-bench-runner! ["manifest" manifest-file])
+    (doseq [command commands]
+      (println "Running" prefix ":" (str/join " " command))
+      (process! command))
+    (run-bench-runner!
+      (into ["merge-manifest" result manifest-file (name profile)] outputs))
+    (run-bench-runner!
+      ["validate-manifest" result manifest-file (name profile)])
+    (run-bench-runner!
+      ["environment" environment (name profile) (or run-id "") result
+       bench-jar-path (pr-str commands)])
+    (println "Validated" prefix "result written to" result)
+    (println "Environment metadata written to" environment)))
+
+(defn bench-screen
+  "Run the explicit two-fork Phase 2 screen matrix after semantic gates."
+  [opts]
+  (bench-profile :screen opts))
+
+(defn bench-decision
+  "Run the fresh three-fork direct-on Phase 2 decision matrix."
+  [opts]
+  (bench-profile :decision opts))
+
+(defn bench-decision-gc
+  "Run the same decision subset with JMH's separate GC profiler."
+  [opts]
+  (bench-profile :decision-gc opts))
+
+(def phase2-jit-cells
+  [{:id "java-list-8-identity-first"
+    :class "xfseq.bench.Phase2JavaBenchmark"
+    :method "loopFirst"
+    :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                             "java-mixed-object-reduced-aware-v2"
+                             "java-mixed-object-nonreducing-v2"
+                             "java-dechunked-object-reduced-aware-v2"
+                             "java-dechunked-object-nonreducing-v2"]
+             "sourceKind" ["list"]
+             "size" ["8"]
+             "workload" ["identity"]}}
+   {:id "java-list-10000-filter-traverse"
+    :class "xfseq.bench.Phase2JavaBenchmark"
+    :method "loopTraverse"
+    :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                             "java-mixed-object-reduced-aware-v2"
+                             "java-mixed-object-nonreducing-v2"
+                             "java-dechunked-object-reduced-aware-v2"
+                             "java-dechunked-object-nonreducing-v2"]
+             "sourceKind" ["list"]
+             "size" ["10000"]
+             "workload" ["filter"]}}
+   {:id "java-vector-64-identity-prefix8"
+    :class "xfseq.bench.Phase2JavaBenchmark"
+    :method "loopPrefix8"
+    :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                             "java-mixed-object-reduced-aware-v2"
+                             "java-mixed-object-nonreducing-v2"
+                             "java-chunked-object-reduced-aware-v2"
+                             "java-chunked-object-nonreducing-v2"]
+             "sourceKind" ["vector"]
+             "size" ["64"]
+             "workload" ["identity"]}}
+   {:id "java-vector-33-filter-first"
+    :class "xfseq.bench.Phase2JavaBenchmark"
+    :method "loopFirst"
+    :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                             "java-mixed-object-reduced-aware-v2"
+                             "java-mixed-object-nonreducing-v2"
+                             "java-chunked-object-reduced-aware-v2"
+                             "java-chunked-object-nonreducing-v2"]
+             "sourceKind" ["vector"]
+             "size" ["33"]
+             "workload" ["filter"]}}
+   {:id "java-vector-1000-map-traverse"
+    :class "xfseq.bench.Phase2JavaBenchmark"
+    :method "loopTraverse"
+    :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                             "java-mixed-object-reduced-aware-v2"
+                             "java-mixed-object-nonreducing-v2"
+                             "java-chunked-object-reduced-aware-v2"
+                             "java-chunked-object-nonreducing-v2"]
+             "sourceKind" ["vector"]
+             "size" ["1000"]
+             "workload" ["map"]}}])
+
+(defn- phase2-jit-command
+  [output {:keys [class method params]}]
+  (let [include (str "^" (java.util.regex.Pattern/quote class) "\\."
+                     (java.util.regex.Pattern/quote method) "$"),
+        jvm-args "-Xms2g -Xmx2g -XX:+UseG1GC",
+        diagnostics "-XX:+UnlockDiagnosticVMOptions -XX:+PrintCompilation -XX:+PrintInlining"]
+    (into ["java" "-jar" bench-jar-path
+           "-f" "1"
+           "-wi" "3"
+           "-w" "1s"
+           "-i" "3"
+           "-r" "1s"
+           "-jvmArgs" jvm-args
+           "-jvmArgsAppend" diagnostics
+           "-rf" "json"
+           "-rff" output]
+          (concat (mapcat (fn [[name values]]
+                            ["-p" (str name "=" (str/join "," values))])
+                          (sort-by key params))
+                  [include]))))
+
+(defn bench-jit
+  "Capture direct-on HotSpot compilation/inlining evidence for reversal cells."
+  [{:keys [run-id]}]
+  (check nil)
+  (bench-jar nil)
+  (let [commit (git-commit)
+        run-id (some-> run-id str str/trim)
+        artifact (artifact-id commit run-id)
+        temporary (str (java.nio.file.Files/createTempDirectory
+                         (java.nio.file.Paths/get "/private/tmp"
+                           (make-array String 0))
+                         "xfseq-phase2-jit-"
+                         (make-array java.nio.file.attribute.FileAttribute 0)))]
+    (doseq [{:keys [id] :as cell} phase2-jit-cells]
+      (let [output (str "results/phase-2/jit/" id "-" artifact ".log")
+            json-output (str temporary "/" id ".json")
+            command (phase2-jit-command json-output cell)]
+        (ensure-absent! output)
+        (println "Running jit:" (str/join " " command))
+        (let [{:keys [exit out err]}
+              (b/process {:command-args command
+                          :out :capture
+                          :err :capture})]
+          (when-not (zero? exit)
+            (throw (ex-info "JIT evidence process failed"
+                            {:command-args command
+                             :exit exit
+                             :out out
+                             :err err})))
+          (b/write-file
+            {:path output
+             :string (str "command: " (str/join " " command) "\n\n"
+                           "--- stdout ---\n" out
+                           "\n--- stderr ---\n" err)}))
+        (println "JIT evidence written to" output)))))
 
 (defn bench-smoke
   "Run only the tiny identity/output smoke after all semantic gates."
@@ -223,7 +460,8 @@
         (smoke-command
           buffer-output
           "xfseq.bench.Phase2BufferBenchmark"
-          [["count" ["8"]]])
+          [["count" ["8"]]
+           ["policy" ["current"]]])
         commands [public-command java-command buffer-command]
         _ (ensure-absent! result)
         _ (ensure-absent! environment)]

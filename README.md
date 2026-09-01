@@ -31,6 +31,21 @@ clojure -Srepro -T:build bench-smoke
 Use an explicit run ID for another receipt at the same commit, for example
 `clojure -Srepro -T:build bench-smoke '{:run-id "followup-20260901"}'`.
 
+Run the checked-in Phase 2 screen and direct-on decision subset with an
+explicit run ID. The GC lane is separate so allocation metrics never stand in
+for throughput:
+
+```sh
+clojure -Srepro -T:build bench-screen '{:run-id "screen-YYYYMMDD"}'
+clojure -Srepro -T:build bench-decision '{:run-id "decision-YYYYMMDD"}'
+clojure -Srepro -T:build bench-decision-gc '{:run-id "decision-gc-YYYYMMDD"}'
+clojure -Srepro -T:build bench-jit '{:run-id "jit-YYYYMMDD"}'
+```
+
+These tasks validate the semantic/build/linkage gates first, run only the
+applicable cells listed in `bench/manifests/phase2-{screen,decision}.edn`,
+and reserve non-overwriting JSON/EDN evidence under `results/phase-2/`.
+
 See [`docs/phase-2-jmh.md`](docs/phase-2-jmh.md) for the parameter registry,
 candidate applicability rules, and result-validation details.
 

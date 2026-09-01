@@ -66,6 +66,9 @@ final class Phase2BenchmarkSupport {
     static final String[] BUFFER_COUNTS = {
             "1", "4", "8", "31", "32", "33", "64", "1000"
     };
+    static final String[] BUFFER_POLICIES = {
+            "current", "all-chunk"
+    };
 
     private Phase2BenchmarkSupport() {
     }

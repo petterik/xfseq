@@ -37,15 +37,20 @@
   [^String workload]
   (case workload
     "identity" identity
-    "map" (xf/map inc-fn)
-    "filter" (xf/filter even-fn)
-    "map-filter" (comp (xf/map inc-fn) (xf/filter even-fn))
-    "five-map" (comp (xf/map inc-fn)
-                      (xf/map inc-fn)
-                      (xf/map inc-fn)
-                      (xf/map inc-fn)
-                      (xf/map inc-fn))
-    "take" (xf/take 32)
+    ;; Use ordinary Clojure transducers for all public comparison rows.  The
+    ;; analyzer-specialized xfseq/map reducing function requires IFn.OLO and
+    ;; cannot be consumed by clojure.core/sequence's TransformerIterator;
+    ;; keeping this xform generic makes every public implementation a valid,
+    ;; symmetric comparison while xfseq remains the implementation under test.
+    "map" (core/map inc-fn)
+    "filter" (core/filter even-fn)
+    "map-filter" (comp (core/map inc-fn) (core/filter even-fn))
+    "five-map" (comp (core/map inc-fn)
+                      (core/map inc-fn)
+                      (core/map inc-fn)
+                      (core/map inc-fn)
+                      (core/map inc-fn))
+    "take" (core/take 32)
     (throw (IllegalArgumentException.
              (str "Unknown Phase 2 benchmark workload: " workload)))))
 

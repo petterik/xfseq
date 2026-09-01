@@ -23,6 +23,19 @@
     "validate-smoke"
     (println (pr-str (registry/validate-smoke! (second args))))
 
+    "manifest"
+    (let [manifest (registry/read-manifest (second args))]
+      (println (pr-str {:path (:path manifest)
+                        :profile (:profile manifest)
+                        :cells (count (:cells manifest))
+                        :identities (count (registry/manifest-identities manifest))})))
+
+    "validate-manifest"
+    (let [[_ result manifest profile] args]
+      (println (pr-str
+                 (registry/validate-manifest!
+                   result manifest (keyword (or profile "decision"))))))
+
     "merge"
     (println (pr-str (registry/merge-results! (second args) (drop 2 args))))
 
@@ -30,6 +43,12 @@
     (println (pr-str (registry/merge-smoke-results!
                        (second args)
                        (drop 2 args))))
+
+    "merge-manifest"
+    (let [[_ target manifest profile & inputs] args]
+      (println (pr-str
+                 (registry/merge-manifest-results!
+                   target inputs manifest (keyword profile)))))
 
     "environment"
     (let [[target profile run-id result jar commands]

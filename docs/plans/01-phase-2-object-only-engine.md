@@ -1,12 +1,12 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Implementation in progress (Slices 1–3 checkpointed; Slice 4 not
-started)
+Status: Implementation in progress (Slices 1–4 implemented; awaiting final
+review)
 
 Stage: plan complete; pre-implementation review passed; Slice 1 implemented,
 accepted, and checkpointed; Slice 2 implemented and accepted by parent
 validation and checkpointed; Slice 3 implemented, accepted, and checkpointed;
-Slice 4 not started
+Slice 4 implemented; final validation recorded; Awaiting final review
 
 Last updated: 2026-09-01
 
@@ -1191,3 +1191,152 @@ Verdict: `ready for implementation`.
 | 2026-09-01 | Slice 3 runner-lifecycle follow-up | `/root/phase2_slice3` | Preserved the parent `parent-20260901` receipts; fixed lingering `clojure.java.shell/sh` agents with `shutdown-agents` in a `finally`; measured fresh validate/environment subprocess termination and ran a final suffixed smoke. | Runner probes exit in 0.58s/0.68s with no lingering process; final `bench-smoke '{:run-id "lifecycle-20260901"}'` exits 0. Parent review and checkpoint commit pending; no screen/decision or production-selection claim. |
 | 2026-09-01 | Slice 3 parent checkpoint | `/root` (`gpt-5.6-sol`, medium) | Inspected timed paths, applicability, AOT bytecode, result/environment writers, raw receipts, merge-profile isolation, and runner lifecycle; independently built the jar, ran all smoke groups, reproduced both workflow defects, revalidated the final lifecycle receipt, reran the registry test and full check, and ignored the generated clj-kondo cache. | Accepted for checkpoint commit; final smoke and validation helpers terminate cleanly, 19-row identity receipt validates, registry 1 / 5 and normal 29 / 2,906 suites pass, linkage/lint/reflection/hygiene are clean, and no performance decision claim is made. |
 | 2026-09-01 | Slice 3 checkpoint | `/root` (`gpt-5.6-sol`, medium) | Committed the accepted Slice 3 harness, documentation, raw smoke receipts, evidence, and plan updates without pushing. | `ec3670ba9c7fcf8f48221fa0e9d53c52e78cb95e`; Slice 4 may start. |
+| 2026-09-01 | Implementation Slice 4 | `/root/phase2_slice4` | Added explicit screen/decision manifests, exact identity validation/merge, minimal benchmark-only all-chunk buffer policy, direct-on screen/decision/GC tasks, JIT/inlining capture, README command, and Slice 4 evidence/decisions. | No production engine or buffer edit was justified; raw screen/decision/GC/JIT evidence is preserved above. |
+| 2026-09-01 | Slice 4 timing lanes | `/root/phase2_slice4` | Ran the checked-in screen, expanded fresh decision, and separate decision-GC manifests after semantic/build/linkage gates; added explicit follow-up for every screen reversal over the 3% gate. | Screen 98/25 and expanded decision/GC 93/24 exact identities validate; all direct-on local runs completed with no overwrite; fastest rows, GC allocation, and reversals are recorded above. |
+| 2026-09-01 | Slice 4 JIT and final handoff | `/root/phase2_slice4` | Captured five direct-on `PrintCompilation`/`PrintInlining` logs covering selected and material-reversal cells, including the added vector/33 filter-first cell; recorded structural findings, local recommendation, and final validation state. | `promising` for Phase 3 investigation; Stage is `Awaiting final review`; parent review and commit remain pending. |
+| 2026-09-01 | Slice 4 parent-check follow-up | `/root` and `/root/phase2_slice4` | The parent recomputed the 98-row screen and found five apparent reversals absent from the original 72-row decision subset, then returned the slice for expanded decision/GC evidence, exact duplicate/profile/allocation validation, and refreshed JIT evidence. | Fresh expanded receipts contain 93 exact identities and cover all screen reversals over the gate. The first expanded decision attempt was interrupted after the computer slept during temporary cell 14; `/private/tmp/xfseq-phase2-decision-5314612465463030637/` was never merged or cited, its processes were terminated, and the complete lane was restarted under run ID `slice4-decision-20260901c`. |
+| 2026-09-01 | Slice 4 parent acceptance | `/root` (`gpt-5.6-sol`, medium) | Inspected every timed path and manifest, recomputed cell scores, errors, allocation, and fork means from raw JSON, verified symmetric source/diff hashes and JIT claims, reran representative vector/64 and buffer/33 comparisons with three-fork GC profiling, and reran focused/full validation. | Accepted for checkpoint commit: parent GC receipts reproduce both directions; screen 98/98, decision 93/93, decision-GC 93/93, smoke 19 rows, registry 4/32, candidate 15/2,726, and full 29/2,906 validations pass; linkage/lint/reflection/hygiene are clean; no Slice 4 production-path diff exists. |
+
+## Slice 4 implementation evidence
+
+Slice 4 adds no production engine or buffer edit. It adds two checked-in,
+applicable-cell manifests, exact manifest expansion/merge validation, a
+benchmark-only `all-chunk` buffer policy, direct-on screen/decision/GC build
+tasks, and a JIT evidence task. The public benchmark xforms use ordinary
+Clojure transducers so `xfseq`, `sequence`, `eduction`, and `transduce` all
+receive the same valid reducing function; the analyzer-specialized `xfseq`
+transducers are not a valid `sequence` control in this harness. The
+benchmark-only policy is implemented in `Phase2BufferBenchmark`; production
+`ObjectBuffer` remains the current policy.
+
+The screen manifest has 25 explicit cells and 98 expanded identities. It
+contains 12 public rows, eight candidate rows (including list/vector boundary
+rows), and five buffer-policy counts. The decision manifest has 24 explicit
+cells and 93 identities: 12 public rows, seven candidate rows, and the same
+five buffer-policy counts. Candidate applicability is checked before any fork;
+the result validator requires the exact expanded identity set, so no invalid
+source-specialized or no-reduced Cartesian cells can enter a durable result.
+
+### Slice 4 validation evidence
+
+| Check | Result |
+|---|---|
+| Screen | `clojure -Srepro -T:build bench-screen '{:run-id "slice4-screen-20260901c"}'` exit 0; two forks, three 1-second warmups/measurements; 98 rows / 25 explicit cells. Result SHA-256 `3e5f422768c3c94d24abc6ccc1b4d85a5dc28461235a66b7554797c14cef4f69`; [`screen JSON`](../../results/phase-2/bench/screen-dcd35b41f5fc2a6f75236ba59756de2530030aef-slice4-screen-20260901c.json); environment SHA-256 `d2b11fb7324b18d3587130292357b9e21abab29eedabaa59f8fd3ffe3abb2dd5`. |
+| Decision | `clojure -Srepro -T:build bench-decision '{:run-id "slice4-decision-20260901c"}'` exit 0; three fresh forks, five 1-second warmups/measurements, `-Xms2g -Xmx2g -XX:+UseG1GC`; 93 rows / 24 explicit cells. Child JSON was under `/private/tmp/xfseq-phase2-decision-6269190665288021845/`; durable result SHA-256 `b0505b0864f803878b2e389b9f3d50f5a30f255ea6ce7b8364aef5f5ca081d40`; [`decision JSON`](../../results/phase-2/bench/decision-dcd35b41f5fc2a6f75236ba59756de2530030aef-slice4-decision-20260901c.json); environment SHA-256 `514207d2681b87579fa117a9c4bc6326dae1348b7f395c1819eef126502bfdb4`. Earlier `slice4-decision-20260901a` 19-cell evidence remains preserved as historical output and is not used for the expanded conclusion. |
+| Allocation | `clojure -Srepro -T:build bench-decision-gc '{:run-id "slice4-decision-gc-20260901b"}'` exit 0; same 93 identities and decision JVM settings with separate JMH `-prof gc`. Child JSON was under `/private/tmp/xfseq-phase2-decision-gc-7620368715052994338/`; durable result SHA-256 `7972ae8073798273e08ec2f0d001ffd4716db05493d0a506d4f4dd1a7c9d27ed`; [`decision GC JSON`](../../results/phase-2/bench/decision-gc-dcd35b41f5fc2a6f75236ba59756de2530030aef-slice4-decision-gc-20260901b.json); environment SHA-256 `c6805f20a60019ddbfca94dbc38ef2e9890079eef5269afb6208e3d003aebd6a`. The profile alias is validated against the decision manifest and every row has finite `gc.alloc.rate.norm`. Earlier `slice4-decision-gc-20260901a` 19-cell evidence remains preserved as historical output and is not used for the expanded conclusion. |
+| Manifest/result validators | `clojure -Srepro -M:bench -m xfseq.bench.runner validate-manifest ...` passed for screen, fresh decision, and fresh decision-GC; each reports its expected exact identity count and manifest SHA. Duplicate identities and count mismatches are rejected before durable reservation. Registry validation tests pass 4 tests / 32 assertions. |
+| Parent GC spot checks | After rebuilding the isolated jar, `/root` independently reran three-fork, five-iteration `-prof gc` subsets for vector/64 mixed-versus-chunked reduced-aware and buffer count 33 current-versus-all-chunk. Vector/64 repeated at 6.831M versus 8.025M ops/s with both 1,104 B/op; [`parent vector/64 JSON`](../../results/phase-2/bench/parent-check-vector64-gc-dcd35b41-20260901a.json), SHA-256 `8f911cc4fcd857c2f39fa5900b97a9c3186dbbd19fb684036d3f2679b8031745`. Count 33 repeated at 3.823M/2,480 B/op versus 3.595M/2,600 B/op; [`parent buffer JSON`](../../results/phase-2/bench/parent-check-buffer33-gc-dcd35b41-20260901a.json), SHA-256 `6ae402c7f11e1fd15e27476ef121efdf234f8369ca63f5ba5c508286700daf10`. Both receipts pass strict `:decision-gc` result validation. |
+| Fresh smoke | `clojure -Srepro -T:build bench-smoke '{:run-id "slice4-smoke-20260901a"}'` exit 0 after the final build; 19 rows / 10 identities / both candidate IDs. Result SHA-256 `fefdcca8897b7a946929f89969f16cc30e4bfedd1943d732432e00cc29a6ced9`; environment SHA-256 `b77446b6189ff353d5c1f936f1c2973a64a0ffc4dff039922a548f3a952dd96e`. `validate-smoke` passed without rewriting the receipt. |
+| JIT/inlining | `clojure -Srepro -T:build bench-jit '{:run-id "slice4-jit-20260901b"}'` exit 0; five one-fork direct-on representative logs are preserved under [`results/phase-2/jit/`](../../results/phase-2/jit/): list/8 `16f705348dda6cf283ee761ae9a4c66ab8b8b587c7bd076262ef2a9727fbe09e`; list/10,000 `c6a95a91f4004bd6ee16605595ee10e3e5533f72af799bb6ba0117c9d128e4be`; vector/64 `d0f954b9bac5ad70d820424bc5a6a224a524a8a6e02118acd84e2a5643e461e5`; vector/33 `d610ddf940e7cd4d4e07ee11999b8481119f42dfd5f5b7dc33930e896410f753`; vector/1,000 `f7e9449d038d6169d2418c6a19a5697556fc6eb36afecc301e23812ef5c728b8`. |
+| JIT finding | Across the fresh selected and reversal logs, `Phase2JavaBenchmark` loop/setup wrappers and the small candidate `invoke` boundary inline hot, while the shared `xfseq.XFSeqObjectStep::invoke` body is 594 bytes and reports `failed to inline: hot method too big` (fresh list/8 line 50616, list/10,000 line 51668, vector/64 line 51849, vector/33 line 51643, and vector/1,000 line 52506). This supports retaining one shared mixed product path; source-shape wrappers do not provide a structural whole-tail proof. |
+| Linkage/lint/reflection/hygiene | Every timing task reran `check`; each reported 29 tests / 2,906 assertions / 0 failures / 0 errors, lint 0/0, and clean reflection. `bench-linkage` completed during each build; `git diff --check` passed after the final edits. |
+
+The direct-on runtime for all three timing lanes is Clojure 1.12.5, CLI
+1.12.5.1664, JMH 1.37, Homebrew OpenJDK 26.0.2.1 arm64, macOS 26.2 / Darwin
+25.2.0, one thread, and G1 for the decision profiles. Each environment file
+records the exact child argv, dirty-diff hash, benchmark source-file hashes,
+JMH jar hash, and result hash. Child JSON remains under `/private/tmp`; only
+the merged non-overwriting result and environment files are cited here.
+
+### Slice 4 results and decisions
+
+Results are kept cell-local; no unlike source, size, workload, sink, or profile
+rows are averaged. The fresh 93-identity decision run produced the following
+public results (ops/s, score error shown as `±`):
+
+| Applicable public cell | Fastest observed row | Cell-local interpretation |
+|---|---|---|
+| list/1 identity/construct | `transduce` 199.35M ±1.08M; `xfseq` 187.09M ±3.39M | `transduce` is about 6.6% faster than `xfseq`; this is an explicit reversal. |
+| subvector/1,000 map/traverse | `transduce` 73.02k ±2.57k; `eduction` 61.32k ±0.66k; `sequence` 60.02k ±6.48k; `xfseq` 44.44k ±0.90k | `transduce` is about 64.3% faster than `xfseq`; `sequence` and `eduction` also reverse the canonical row. |
+| range/1,000 filter/vector | `eduction` 418.80k ±4.02k; `transduce` 177.52k ±2.34k; `xfseq` 164.31k ±1.13k | `eduction` is about 154.9% faster than `xfseq`; `transduce` is about 8.0% faster. |
+| set/1,000 filter/traverse | `transduce` 43.16k ±6.46k; `sequence` 40.62k ±0.35k; `eduction` 39.97k ±0.27k; `xfseq` 30.60k ±1.37k | `transduce` is about 41.1% faster than `xfseq`; all three controls reverse the canonical row. |
+| list/8 map/first | `xfseq` 33.27M ±0.26M; `transduce` 14.71M ±0.25M | `xfseq` is the fastest public row. |
+| list/1,000 filter/prefix8 | `xfseq` 4.42M ±0.06M; `sequence` 1.31M ±0.01M; `eduction` 1.20M ±0.01M; `transduce` 0.20M ±0.003M | `xfseq` is the fastest public row. |
+| list/10,000 map-filter/traverse | `transduce` 12.84k ±0.16k; `xfseq` 7.99k ±1.26k; `sequence` 7.23k ±0.10k; `eduction` 6.95k ±0.19k | `transduce` is about 60.7% faster than `xfseq`; the `xfseq` interval is wide, so this remains a reversal context rather than an adoption claim. |
+| vector/64 identity/prefix8 | `xfseq` 7.11M ±0.05M; `sequence` 2.62M ±0.02M; `eduction` 2.21M ±0.008M; `transduce` 1.58M ±0.02M | `xfseq` is the fastest public row. |
+| vector/1,000 five-map/traverse | `xfseq` 55.15k ±0.56k; `sequence` 43.32k ±0.32k; `transduce` 44.86k ±0.64k; `eduction` 41.82k ±2.02k | `xfseq` is the fastest public row. |
+| vector/1,000,000 take/reduce | `eduction` 3.64M ±0.03M; `transduce` 2.17M ±0.08M; `xfseq` 1.95M ±0.59M; `sequence` 1.26M ±0.005M | `eduction` is about 86.9% faster than `xfseq`, but `xfseq` has a wide interval; retain as a named reversal. |
+| array/1,000 map/traverse | `sequence` 68.89k ±0.47k; `eduction` 65.55k ±0.42k; `transduce` 59.31k ±4.99k; `xfseq` 50.18k ±1.53k | `sequence` is about 37.3% faster than `xfseq`; this is an explicit reversal. |
+| iterable/1,000 map-filter/reduce | `eduction` 202.61k ±5.56k; `xfseq` 135.58k ±1.48k; `transduce` 105.65k ±0.77k; `sequence` 76.43k ±0.87k | `eduction` is about 49.5% faster than `xfseq`; this is an explicit reversal. |
+
+The separate decision-GC receipt has finite `gc.alloc.rate.norm` for all 93
+identities. Public allocation remains cell-local: list/1 is `xfseq` 104
+B/op versus `transduce` 64; subvector/1,000 is 165,256 versus `transduce`
+190,592; range/1,000 is 62,176 versus `eduction` 24,304 and `transduce`
+85,352; set/1,000 is 240,056 versus `sequence` 53,368, `eduction` 53,680,
+and `transduce` 105,864; list/8 map/first is 368 versus 408/720/608;
+list/1,000 filter/prefix8 is 1,264 versus 952/1,264/64,784;
+list/10,000 map-filter is 797,233 versus 554,769/555,081/1,107,401;
+vector/64 is 1,208 versus 944/1,256/8,488; vector/1,000 five-map is
+170,712 versus 168,904/169,216/274,688; vector/1,000,000 take is 1,096
+versus 792/1,195/4,408; array/1,000 is 165,208 versus 84,744/85,056/222,544;
+and iterable/1,000 map-filter is 51,544 versus 12,160/59,816/97,176 B/op
+for `xfseq` versus `sequence`/`eduction`/`transduce`, respectively. These
+figures are allocation evidence for the same cells, not a cross-cell average.
+
+The fresh decision run's Java candidate rows were:
+
+| Applicable cell | Fastest observed row | Selection interpretation |
+|---|---|---|
+| list/8 identity/first | `java-polymorphic-object-reduced-aware-v2`, 201.58M ±15.95M | The win over mixed reduced-aware (131.67M ±6.61M) repeats in all three forks, but the same generic candidate regresses about 4.3% on list/10,000 and about 3.1% on vector/33, while allocating 264 versus 240 B/op here; it therefore fails the no-regression rule for replacing the canonical generic loop. |
+| list/1,000 map/prefix8 | restricted `java-mixed-object-nonreducing-v2`, 5.286M ±0.043M | It is about 4.3% over reduced-aware mixed (5.067M ±0.028M), below the 5% benefit rule; the no-reduced precondition is adapter-owned and cannot dispatch arbitrary `xf-seq`. |
+| list/10,000 filter/traverse | `java-mixed-object-reduced-aware-v2`, 9,459 ±81 | It leads dechunked reduced-aware (8,812 ±65) by about 7.3%; reduced-aware rows allocate about 560,153 B/op versus 1,120,153 B/op for no-reduced rows. |
+| vector/64 identity/prefix8 | restricted `java-chunked-object-reduced-aware-v2`, 7.946M ±0.062M | It leads mixed reduced-aware (6.753M ±0.075M) by about 17.7%, with both at 1,104 B/op in GC; vector-node/source-tail structure remains unproved, so no production dispatch. |
+| vector/33 filter/first | restricted `java-chunked-object-reduced-aware-v2`, 10.905M ±0.073M | It is exactly about 4.993% over mixed reduced-aware (10.387M ±0.114M), below the 5% rule; both allocate 680 B/op and no structural proof supports dispatch. |
+| vector/1,000 map/traverse | restricted `java-mixed-object-nonreducing-v2`, 148.108k ±0.947k | It leads mixed reduced-aware (116.661k ±1.244k) by about 26.9%, but the no-reduced precondition is restricted and the competing chunked no-reduced interval is wide; no selection. |
+| vector/1,000,000 filter/traverse | `java-chunked-object-reduced-aware-v2`, 215.50 ±2.27 | It is within about 0.6% of mixed reduced-aware (214.22 ±1.39), within uncertainty; no specialization earns itself. |
+
+The Java GC values for the critical comparisons are list/8 poly/mixed
+264/240 B/op; list/1,000 mixed reduced/non-reduced 1,160/1,160; list/10,000
+mixed reduced/non-reduced 560,153/1,120,153; vector/64 mixed/chunk reduced
+1,104/1,104; vector/33 mixed/chunk reduced 680/680; vector/1,000 mixed
+reduced/non-reduced and chunk reduced 86,464/65,512/87,704; and vector/
+1,000,000 mixed/chunk reduced 37,000,329/38,250,291 B/op. The restricted
+no-reduced rows answer a bounded adapter question and cannot justify a
+general production dispatch.
+
+The fresh buffer-policy rows (throughput; allocation B/op) were: count 1
+current 50.22M/104 versus `all-chunk` 63.48M/248 (+26.4% throughput, +138.5%
+allocation); count 4 current 23.33M/200 versus 24.07M/424 (+3.2%, +112.0%);
+count 32 current 3.960M/2,152 versus 4.728M/2,104 (+19.4%, -2.2%); count 33
+current 3.798M/2,480 versus 3.600M/2,600 (-5.2%, +4.8%); and count 1,000
+current 102.19k/64,376 versus 99.26k/68,840 (-2.9%, +6.9%). The adjacent
+count reversals, count-4 below-threshold win, and allocation trade-offs fail the 5% benefit /
+3% regression / uncertainty rule as a policy change. Production therefore
+keeps the current `ObjectBuffer` small-batch/capacity policy;
+`all-chunk` remains a named benchmark-only alternative and no production
+buffer edit was justified.
+
+The required apparent-reversal follow-up is complete and explicitly named:
+public list/1 identity/construct (`transduce`), subvector/1,000 map/traverse
+(`transduce`, with `sequence`/`eduction` also ahead), range/1,000
+filter/vector (`eduction`, with `transduce` also ahead), set/1,000
+filter/traverse (`transduce`, with `sequence`/`eduction` also ahead),
+list/10,000 map-filter/traverse (`transduce`), vector/1,000,000 take/reduce
+(`eduction`, with a wide `xfseq` interval), array/1,000 map/traverse
+(`sequence`), and iterable/1,000 map-filter/reduce (`eduction`). The Java
+follow-up names restricted list/1,000 no-reduced, vector/64 chunked reduced,
+and vector/1,000 no-reduced wins; vector/33 chunked reduced is 4.993%, below
+the threshold; list/8 polymorphic repeats but the same generic path regresses
+over 3% in other supported rows; list/10,000 mixed reduced is the stable
+winner; and vector/1,000,000 mixed/chunked reduced is tied.
+None satisfies the combined benefit, regression, uncertainty, allocation, and
+structural-proof rule for general production selection.
+
+The public rows still show repeatable object-engine wins on list first/prefix
+and vector identity/five-map rows, alongside the named reversals. These are
+useful Phase 2 context and are not direct unary core adoption claims. The
+strongest defensible outcome is **promising for a later Phase 3
+investigation**, conditional on function-specific semantic and direct-core
+evidence. Phase 2 makes no Phase 3, cross-JDK, direct-linking-off, publication,
+or upstream claim.
+
+### Slice 4 decisions
+
+| Date | Decision | Reason |
+|---|---|---|
+| 2026-09-01 | Keep one canonical mixed reduced-aware production loop and the current `ObjectBuffer` policy. | No source-specialized row has a whole-source structural proof; no-reduced rows are restricted; buffer wins reverse on adjacent counts and allocation. |
+| 2026-09-01 | Keep every repaired v2 candidate and fastest cell-level result as an internal baseline. | The list/vector specialized and no-reduced rows answer real restricted questions even though they cannot serve arbitrary `xf-seq`. Historical IDs remain untouched. |
+| 2026-09-01 | Use ordinary Clojure transducers in public benchmark rows. | The analyzer-specialized `xfseq/map` reducing function requires `IFn.OLO` and fails under `sequence`'s `TransformerIterator`; generic xforms make the public comparisons valid and symmetric. |
+| 2026-09-01 | Treat JIT output as structural evidence, not as a score or a reason to add dispatch. | Hot setup/wrapper methods inline, but the 594-byte shared state machine does not; the source-tail proof remains absent. |
+| 2026-09-01 | Recommend `promising` for Phase 3 investigation, with reversals named. | The canonical object engine has repeatable wins on representative list/vector rows and a correct, simple product path, but public reversals and source-specific Java wins prevent a broader adoption claim. |

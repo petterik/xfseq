@@ -2,11 +2,14 @@
   "Checked-in Phase 2 benchmark parameters and evidence helpers.
 
   The registry deliberately lives outside the normal source path.  It is the
-  single place for the release-equivalent parameter vocabulary and for the
-  profile defaults used by the JMH build tasks."
+  single place for the release-equivalent parameter vocabulary and the
+  profile-specific validation/evidence contract.  The tools.build task mirrors
+  the execution fields in its isolated build namespace."
   (:require [clojure.data.json :as json]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
+            [clojure.set :as set]
             [clojure.string :as str]
             [xfseq.phase-2-candidates :as candidates])
   (:import [java.lang.management ManagementFactory]
@@ -31,6 +34,9 @@
 (def sinks
   ["construct" "first" "prefix8" "traverse" "vector" "reduce"])
 
+(def buffer-policies
+  ["current" "all-chunk"])
+
 (def public-implementations
   ["xfseq" "sequence" "eduction" "transduce"])
 
@@ -47,9 +53,20 @@
    :sizes sizes
    :workloads workloads
    :sinks sinks
+   :buffer-policies buffer-policies
    :public-implementations public-implementations
    :candidate-ids candidate-ids
    :candidate-source-modes candidate-source-modes})
+
+(def benchmark-methods
+  {"xfseq.bench.Phase2PublicBenchmark"
+   #{"construct" "first" "prefix8" "traverse" "vector" "reduce"}
+   "xfseq.bench.Phase2JavaBenchmark"
+   #{"loopFirst" "loopPrefix8" "loopTraverse"}
+   "xfseq.bench.Phase2BufferBenchmark"
+   #{"appendAndFlush"}})
+
+(declare valid-number? valid-score-error? valid-gc-allocation? validate-result!)
 
 (def profiles
   {:smoke {:forks 1
@@ -74,9 +91,17 @@
               :warmup-time "1s"
               :measurement-time "1s"
               :format "json"
-              :allocation-profiler "gc"
               :jvm-opts ["-Xms2g" "-Xmx2g" "-XX:+UseG1GC"]
-              :purpose :cell-level-production-decision}})
+              :purpose :cell-level-production-decision}
+   :decision-gc {:forks 3
+                 :warmups 5
+                 :measurements 5
+                 :warmup-time "1s"
+                 :measurement-time "1s"
+                 :format "json"
+                 :allocation-profiler "gc"
+                 :jvm-opts ["-Xms2g" "-Xmx2g" "-XX:+UseG1GC"]
+                 :purpose :cell-level-allocation-evidence}})
 
 (def smoke-groups
   [{:class "xfseq.bench.Phase2PublicBenchmark"
@@ -254,6 +279,194 @@
   (with-open [reader (io/reader file)]
     (json/read reader :key-fn keyword)))
 
+(defn read-manifest
+  "Read and validate one checked-in applicable-cell manifest."
+  [file]
+  (let [file (io/file file)
+        manifest (edn/read-string (slurp file))
+        cells (:cells manifest)]
+    (when-not (and (= 1 (:schema-version manifest))
+                   (#{:screen :decision} (:profile manifest))
+                   (vector? cells)
+                   (seq cells))
+      (throw (ex-info "Invalid Phase 2 benchmark manifest header"
+                      {:path (.getPath file) :manifest manifest})))
+    (let [ids (map :id cells)]
+      (when-not (and (every? string? ids)
+                     (= (count ids) (count (distinct ids))))
+        (throw (ex-info "Phase 2 benchmark manifest IDs must be unique strings"
+                        {:path (.getPath file)}))))
+    (doseq [{:keys [id class method params]} cells]
+      (when-not (and (contains? benchmark-methods class)
+                     (contains? (get benchmark-methods class) method)
+                     (map? params)
+                     (every? (fn [[key values]]
+                               (and (string? key)
+                                    (vector? values)
+                                    (seq values)
+                                    (every? string? values)))
+                             params))
+        (throw (ex-info "Invalid Phase 2 benchmark manifest cell"
+                        {:path (.getPath file)
+                         :id id
+                         :cell {:class class :method method :params params}}))))
+    (doseq [{:keys [class params id]} cells]
+      (cond
+        (= class "xfseq.bench.Phase2JavaBenchmark")
+        (doseq [candidate-id (get params "candidateId")
+                source-kind (get params "sourceKind")]
+          (let [source-mode (get candidate-source-modes candidate-id)]
+            (when-not source-mode
+              (throw (ex-info "Manifest names an unknown candidate ID"
+                              {:path (.getPath file)
+                               :id id
+                               :candidate-id candidate-id})))
+            (when-not (or (= :mixed source-mode)
+                          (and (= :dechunked source-mode)
+                               (= "list" source-kind))
+                          (and (= :chunked source-mode)
+                               (= "vector" source-kind)))
+              (throw (ex-info "Manifest contains an inapplicable candidate cell"
+                              {:path (.getPath file)
+                               :id id
+                               :candidate-id candidate-id
+                               :source-kind source-kind
+                               :source-mode source-mode})))))
+
+        (= class "xfseq.bench.Phase2BufferBenchmark")
+        (when-not (every? (set buffer-policies) (get params "policy"))
+          (throw (ex-info "Manifest contains an unknown buffer policy"
+                          {:path (.getPath file) :id id
+                           :policy (get params "policy")})))))
+    (assoc manifest :path (.getPath file))))
+
+(defn- parameter-combinations
+  [params]
+  (reduce (fn [combinations [key values]]
+            (for [combination combinations
+                  value values]
+              (assoc combination key value)))
+          [{}]
+          (sort-by key params)))
+
+(defn manifest-identities
+  "Expand explicit manifest cells into exact benchmark identities."
+  [manifest]
+  (set (mapcat (fn [{:keys [class method params]}]
+                 (map (fn [combination]
+                        [class method combination])
+                      (parameter-combinations params)))
+               (:cells manifest))))
+
+(defn- manifest-profile
+  "Map a result profile to the profile represented by its manifest.
+
+  GC evidence reruns the decision cells, so `:decision-gc` intentionally
+  validates against a `:decision` manifest while retaining its stricter
+  result-profile validation."
+  [profile]
+  (if (= :decision-gc profile)
+    :decision
+    profile))
+
+(defn- validate-manifest-profile!
+  [manifest manifest-file profile]
+  (let [supplied (manifest-profile profile)
+        declared (:profile manifest)]
+    (when-not (= declared supplied)
+      (throw (ex-info "Benchmark result profile differs from manifest profile"
+                      {:manifest (.getPath (io/file manifest-file))
+                       :manifest-profile declared
+                       :profile profile
+                       :manifest-validation-profile supplied})))
+    manifest))
+
+(defn- benchmark-identity
+  [row]
+  (let [name (:benchmark row)
+        split (.lastIndexOf ^String name ".")]
+    (when (neg? split)
+      (throw (ex-info "JMH benchmark name has no method separator"
+                      {:benchmark name})))
+    [(subs name 0 split)
+     (subs name (inc split))
+     (into {}
+           (map (fn [[key value]]
+                  [(if (keyword? key) (clojure.core/name key) key) value])
+                (:params row)))]))
+
+(defn- validate-manifest-rows!
+  [rows expected path manifest]
+  (let [identities (mapv benchmark-identity rows)
+        duplicate-identities (->> (frequencies identities)
+                                  (filter (fn [[_ occurrences]]
+                                            (> occurrences 1)))
+                                  (sort-by (comp pr-str key))
+                                  (mapv (fn [[identity occurrences]]
+                                          {:identity identity
+                                           :occurrences occurrences})))
+        actual (set identities)]
+    (when-not (= (count rows) (count expected))
+      (throw (ex-info "JMH result row count differs from checked-in manifest"
+                      {:path path
+                       :manifest (:path manifest)
+                       :expected-count (count expected)
+                       :actual-count (count rows)})))
+    (when (seq duplicate-identities)
+      (throw (ex-info "JMH result contains duplicate benchmark identities"
+                      {:path path
+                       :manifest (:path manifest)
+                       :duplicates duplicate-identities})))
+    (when-not (= expected actual)
+      (throw (ex-info "JMH result cells differ from checked-in manifest"
+                      {:path path
+                       :manifest (:path manifest)
+                       :missing (vec (sort-by pr-str
+                                              (set/difference expected actual)))
+                       :unexpected (vec (sort-by pr-str
+                                                 (set/difference actual expected)))})))
+    rows))
+
+(defn validate-rows!
+  "Validate JMH rows without requiring them to be in a durable file yet."
+  [rows profile path]
+  (when-not (and (vector? rows) (seq rows))
+    (throw (ex-info "JMH JSON must contain a non-empty result array"
+                    {:path path})))
+  (doseq [row rows]
+    (when-not (and (map? row)
+                   (string? (:benchmark row))
+                   (string? (:mode row))
+                   (= jmh-version (:jmhVersion row))
+                   (map? (:primaryMetric row))
+                   (valid-number? (get-in row [:primaryMetric :score]))
+                   (valid-score-error?
+                     (get-in row [:primaryMetric :scoreError])
+                     profile)
+                   (valid-gc-allocation? row profile)
+                   (map? (:params row)))
+      (throw (ex-info "JMH result row is missing required metrics"
+                      {:path path :row row}))))
+  rows)
+
+(defn validate-manifest!
+  "Require a result to contain exactly the applicable manifest cells."
+  ([file manifest-file]
+   (validate-manifest! file manifest-file :decision))
+  ([file manifest-file profile]
+   (let [manifest (validate-manifest-profile!
+                    (read-manifest manifest-file)
+                    manifest-file
+                    profile)
+         summary (validate-result! file profile)
+         expected (manifest-identities manifest)
+         rows (read-json file)]
+     (validate-manifest-rows! rows expected (.getPath (io/file file)) manifest)
+     (assoc summary
+            :manifest (:path manifest)
+            :manifest-sha256 (sha256-file manifest-file)
+            :manifest-cells (count expected)))))
+
 (defn- valid-number?
   [value]
   (and (number? value)
@@ -268,6 +481,15 @@
   ;; needs to validate as a shape/identity check.
   (or (valid-number? value)
       (and (= :smoke profile) (= "NaN" value))))
+
+(defn- valid-gc-allocation?
+  [row profile]
+  ;; A decision-GC receipt is useful only when JMH actually emitted the
+  ;; normalized allocation metric.  Throughput-only JSON must not masquerade
+  ;; as allocation evidence merely because its primary score is numeric.
+  (or (not (= :decision-gc profile))
+      (valid-number?
+        (get-in row [:secondaryMetrics :gc.alloc.rate.norm :score]))))
 
 (defn validate-result!
   "Validate JMH JSON shape and return a compact summary.
@@ -294,6 +516,7 @@
                        (valid-score-error?
                          (get-in row [:primaryMetric :scoreError])
                          profile)
+                       (valid-gc-allocation? row profile)
                        (map? (:params row)))
           (throw (ex-info "JMH result row is missing required metrics"
                           {:path (.getPath file) :row row}))))
@@ -348,3 +571,24 @@
   "Merge a short smoke profile, whose two-sample error may be `\"NaN\"`."
   [target inputs]
   (merge-results! target inputs :smoke))
+
+(defn merge-manifest-results!
+  "Validate and merge child JMH results against an explicit cell manifest."
+  [target inputs manifest-file profile]
+  (let [manifest (validate-manifest-profile!
+                   (read-manifest manifest-file)
+                   manifest-file
+                   profile)
+        rows (vec (mapcat (fn [file]
+                            (let [parsed (read-json file)]
+                              (validate-rows! parsed profile file)
+                              parsed))
+                          inputs))
+        expected (manifest-identities manifest)]
+    ;; Check every identity and row count before reserving the durable target;
+    ;; duplicate rows from repeated/overlapping child runs must never be
+    ;; hidden by set comparison or leave a partial result behind.
+    (validate-manifest-rows! rows expected target manifest)
+    (let [target (ensure-new-path! target)]
+      (write-json-new! target rows)
+      (validate-manifest! target manifest-file profile))))
