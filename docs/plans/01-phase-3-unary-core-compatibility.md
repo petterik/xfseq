@@ -1178,7 +1178,7 @@ Verdict: `ready for implementation`.
 
 ## Slice 1 implementation evidence
 
-Slice 1 is implemented and awaiting the parent checkpoint review.  It changes
+Slice 1 was accepted by the parent and checkpointed at `03af0e7`. It changes
 only the public Clojure transducer surface, test/oracle support, and this plan;
 the Java engine and benchmark sources are unchanged.
 
@@ -1201,3 +1201,4 @@ the Java engine and benchmark sources are unchanged.
 | 2026-09-01 | Implementation Slice 1 | `/root/phase3_slice1` | Replaced analyzer-backed public map/filter/remove/take transducer factories with direct core delegates; added fresh unary oracle fixtures/tests; preserved the analyzer-backed generated map behavior in a test-only historical helper so existing generator coverage stays valid. | Initial focused oracle passed 9 / 789. Initial full check exposed two expected historical generator primitive-path assumptions; the helper/test redirection resolved them without restoring analyzer coupling to the #1 path. |
 | 2026-09-01 | Oracle coverage follow-up | `/root/phase3_slice1` | Replaced the explicit-init `transduce` snapshot with direct fresh transformed-reducing-function probes, covering zero-arity init, ordinary steps, completion, early `Reduced` behavior for `take`, and invalid xform/fixed-step arities; retained the explicit multi-input map proof. | Focused oracle passed 10 / 796; no production or benchmark scope change. |
 | 2026-09-01 | Slice 1 verification | `/root/phase3_slice1` | Reran the complete local check and reviewed the diff for Java/benchmark scope, unary arities, direct-core delegation, and preserved analyzer/generator sources. | Focused core + oracle passed 11 / 842; `clojure -Srepro -T:build check` passed with lint 0/0, reflection clean, 39 tests / 3,702 assertions / 0 failures / 0 errors. Awaiting parent inspection and checkpoint commit; no performance claim. |
+| 2026-09-01 | Slice 1 parent checkpoint | `/root` | Inspected the complete diff, returned one inaccurate init-coverage claim for correction, then independently reran the focused pair, full check, and diff hygiene. | Accepted at `03af0e7`; focused 11 / 842 and full 39 / 3,702 passed with lint 0/0, reflection clean, and `git diff --check` clean. |
