@@ -1205,7 +1205,7 @@ the Java engine and benchmark sources are unchanged.
 
 ## Slice 2 implementation evidence
 
-Slice 2 keeps one ordinary `LazySeq`, initializer, mixed state machine,
+Slice 2 was accepted by the parent and checkpointed at `e33173c`. It keeps one ordinary `LazySeq`, initializer, mixed state machine,
 accumulator/completion path, and `ObjectBuffer`. The public unary collection
 wrappers select one closed `UnaryProfile` (`MAP_LIKE`, `FILTER_LIKE`, or
 `TAKE`) at construction. The profile supplies only the four facilities named
@@ -1243,3 +1243,4 @@ added.
 | 2026-09-01 | Semantic coverage follow-up | `/root/phase3_slice1` | Added fresh direct-vs-candidate cases for final-take rest failure, remove predicate failure, invalid mapper/predicate arity, non-seqable input, custom dechunked failures, all requested initial/later custom chunked failures, all-four-function surface/reduction/early-reduced behavior, and engine reference release. | Focused oracle passed 24 / 1,722; no additional production mechanism beyond the existing profile failure termination was needed. |
 | 2026-09-01 | Slice 2 verification | `/root/phase3_slice1` | Ran the focused unary oracle, Phase 2 object engine/candidate suites, full build check, and diff hygiene; reviewed production state/branch/reference additions against the four-facility boundary. | Focused 24 / 1,722; Phase 2 pair 28 / 2,860; full 53 / 4,628; lint 0/0; reflection clean; `git diff --check` clean. Ready for parent inspection; no commit made. |
 | 2026-09-01 | Take replay correction | `/root/phase3_slice1` | Changed every lazy exception snapshot to four same-node forces; moved invalid-count validation outside compatibility failure termination so count/type errors retain callable state; kept successful take `rest` failures retryable only for the deterministic repeated-NPE shape while clearing source/xform references; added positive take source-seq/first failure coverage. | Focused 24 / 1,699; Phase 2 pair 28 / 2,860; full 53 / 4,605; lint 0/0; reflection clean; `git diff --check` clean. No fifth compatibility mechanism was needed; uncommitted for parent review. |
+| 2026-09-01 | Slice 2 parent checkpoint | `/root` | Inspected the full production/test diff, returned missing failure/surface/reference cases and then a two-force `take` replay blind spot, probed four-force direct behavior, and independently reran the semantic checkpoint. | Accepted at `e33173c`; combined unary plus Phase 2 suites passed 52 / 4,559, full check passed 53 / 4,605, and lint, reflection, and diff hygiene were clean. |
