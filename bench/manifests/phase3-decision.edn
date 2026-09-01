@@ -1,0 +1,200 @@
+{:schema-version 1
+ :phase :phase3
+ :profile :decision
+ :description "Fresh Phase 3 direct-unary decision subset; every operation has dechunked/chunked small-boundary/steady-state partial/full and applicable retained/unretained coverage. Direct transduce has no retained-head rows."
+ :cells
+ [{:id "map-list-8-first"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["8"]}}
+  {:id "map-vector-32-prefix8"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["32"]}}
+  {:id "map-list-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]}}
+  {:id "map-vector-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]}}
+  {:id "map-reductions-unretained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+  {:id "map-reductions-retained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction"]
+            "operation" ["map"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+
+  {:id "filter-list-8-first"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["filter"]
+            "sourceKind" ["list"]
+            "size" ["8"]}}
+  {:id "filter-vector-32-prefix8"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["filter"]
+            "sourceKind" ["vector"]
+            "size" ["32"]}}
+  {:id "filter-list-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["filter"]
+            "sourceKind" ["list"]
+            "size" ["1000"]}}
+  {:id "filter-vector-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["filter"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]}}
+  {:id "filter-reductions-unretained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["filter"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+  {:id "filter-reductions-retained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction"]
+            "operation" ["filter"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+
+  {:id "remove-list-8-first"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["remove"]
+            "sourceKind" ["list"]
+            "size" ["8"]}}
+  {:id "remove-vector-32-prefix8"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["remove"]
+            "sourceKind" ["vector"]
+            "size" ["32"]}}
+  {:id "remove-list-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["remove"]
+            "sourceKind" ["list"]
+            "size" ["1000"]}}
+  {:id "remove-vector-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["remove"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]}}
+  {:id "remove-reductions-unretained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["remove"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+  {:id "remove-reductions-retained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction"]
+            "operation" ["remove"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+
+  {:id "take-list-8-first"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["take"]
+            "sourceKind" ["list"]
+            "size" ["8"]}}
+  {:id "take-vector-32-prefix8"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["take"]
+            "sourceKind" ["vector"]
+            "size" ["32"]}}
+  {:id "take-list-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["take"]
+            "sourceKind" ["list"]
+            "size" ["1000"]}}
+  {:id "take-vector-1000-traverse"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["take"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]}}
+  {:id "take-reductions-unretained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["take"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+  {:id "take-reductions-retained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction"]
+            "operation" ["take"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}]}

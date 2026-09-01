@@ -1,0 +1,116 @@
+{:schema-version 1
+ :phase :phase3
+ :profile :screen
+ :description "Focused Phase 3 workload/source controls for Slice 4 diagnosis; this is intentionally separate from the compact primary screen."
+ :cells
+ [{:id "focused-map-workloads-list"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                              "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity" "arithmetic" "heavy"]
+            "takeCount" ["0"]}}
+  {:id "focused-map-source-families"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                              "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["vector" "subvector" "range" "set"
+                          "map-entries" "sorted-map-entries" "array"
+                          "iterable" "iterator" "lazy-list"]
+            "size" ["8"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "focused-filter-selectivities-list"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                              "sequence" "eduction" "transduce"]
+            "operation" ["filter"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["selectivity-0" "selectivity-1" "selectivity-50"
+                        "selectivity-99" "selectivity-100"]
+            "takeCount" ["0"]}}
+  {:id "focused-remove-selectivities-vector"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                              "sequence" "eduction" "transduce"]
+            "operation" ["remove"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["selectivity-0" "selectivity-1" "selectivity-50"
+                        "selectivity-99" "selectivity-100"]
+            "takeCount" ["0"]}}
+  {:id "focused-take-counts-vector"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                              "sequence" "eduction" "transduce"]
+            "operation" ["take"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["take"]
+            "takeCount" ["0" "1" "8" "31" "32" "33"
+                         "source-length" "small-prefix" "large-prefix"]}}
+  {:id "focused-take-terminating-infinite"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                              "sequence" "eduction" "transduce"]
+            "operation" ["take"]
+            "sourceKind" ["repeat" "iterate"]
+            "size" ["1000"]
+            "workload" ["take"]
+            "takeCount" ["small-prefix" "large-prefix"]}}
+  {:id "focused-java-repaired-list-map"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["java-polymorphic-object-reduced-aware-v2"
+                              "java-mixed-object-reduced-aware-v2"
+                              "java-mixed-object-nonreducing-v2"
+                              "java-dechunked-object-reduced-aware-v2"
+                              "java-dechunked-object-nonreducing-v2"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "focused-java-repaired-list-filter-remove"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["java-polymorphic-object-reduced-aware-v2"
+                              "java-mixed-object-reduced-aware-v2"
+                              "java-mixed-object-nonreducing-v2"
+                              "java-dechunked-object-reduced-aware-v2"
+                              "java-dechunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
+            "takeCount" ["0"]}}
+  {:id "focused-java-repaired-vector-map"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["java-chunked-object-reduced-aware-v2"
+                              "java-chunked-object-nonreducing-v2"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "focused-java-repaired-vector-filter-remove"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["java-chunked-object-reduced-aware-v2"
+                              "java-chunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
+            "takeCount" ["0"]}}]}

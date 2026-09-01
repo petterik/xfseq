@@ -23,6 +23,9 @@
     "validate-smoke"
     (println (pr-str (registry/validate-smoke! (second args))))
 
+    "validate-phase3-smoke"
+    (println (pr-str (registry/validate-phase3-smoke! (second args))))
+
     "manifest"
     (let [manifest (registry/read-manifest (second args))]
       (println (pr-str {:path (:path manifest)
@@ -51,17 +54,22 @@
                    target inputs manifest (keyword profile)))))
 
     "environment"
-    (let [[target profile run-id result jar commands]
+    (let [[phase target profile run-id result jar commands]
           (case (count args)
             6 (let [[_ target profile result jar commands] args]
-                [target profile nil result jar commands])
+                [:phase2 target profile nil result jar commands])
             7 (let [[_ target profile run-id result jar commands] args]
-                [target profile (when-not (str/blank? run-id)
-                                  run-id)
+                [:phase2 target profile (when-not (str/blank? run-id)
+                                         run-id)
+                 result jar commands])
+            8 (let [[_ phase target profile run-id result jar commands] args]
+                [(keyword phase) target profile
+                 (when-not (str/blank? run-id) run-id)
                  result jar commands])
             (throw (IllegalArgumentException.
-                     "environment expects target, profile, result, jar, commands, optionally run-id")))
-          value (registry/environment (keyword profile)
+                     "environment expects target, profile, result, jar, commands, optionally run-id, or phase target ...")))
+          value (registry/environment phase
+                                      (keyword profile)
                                       run-id
                                       result
                                       jar

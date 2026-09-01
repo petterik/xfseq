@@ -44,6 +44,40 @@
             :size "1"
             :workload "identity"}})
 
+(defn- phase3-manifest
+  [params]
+  {:schema-version 1
+   :phase :phase3
+   :profile :screen
+   :cells [{:id "test-phase3-first"
+            :class "xfseq.bench.Phase3UnaryBenchmark"
+            :method "first"
+            :params params}]})
+
+(defn- phase3-row
+  ([implementation method source-kind]
+   (phase3-row implementation method source-kind "map"))
+  ([implementation method source-kind operation]
+   {:benchmark (str "xfseq.bench.Phase3UnaryBenchmark." method)
+    :mode "thrpt"
+    :jmhVersion "1.37"
+    :primaryMetric {:score 1.0
+                    :scoreError 0.1}
+    :params {:implementation implementation
+             :operation operation
+             :sourceKind source-kind
+             :size "8"}}))
+
+(defn- focused-phase3-manifest
+  [params]
+  {:schema-version 1
+   :phase :phase3
+   :profile :screen
+   :cells [{:id "test-focused-phase3"
+            :class "xfseq.bench.Phase3FocusedBenchmark"
+            :method "first"
+            :params params}]})
+
 (deftest profile-aware-score-error-validation
   (testing "smoke accepts JMH's two-sample NaN marker"
     (let [input (java.io.File/createTempFile "xfseq-bench-registry-" ".json")
@@ -84,6 +118,209 @@
                               "xfseq.bench.Phase2BufferBenchmark"}
                          (:class %))
                 (:cells screen)))))
+
+(deftest phase3-manifests-are-explicit-and-applicable
+  (let [screen (registry/read-manifest "bench/manifests/phase3-screen.edn")
+        decision (registry/read-manifest "bench/manifests/phase3-decision.edn")]
+    (is (= :phase3 (:phase screen)))
+    (is (= :phase3 (:phase decision)))
+    (is (= :screen (:profile screen)))
+    (is (= :decision (:profile decision)))
+    (is (= 184 (count (registry/manifest-identities screen))))
+    (is (= 184 (count (registry/manifest-identities decision))))
+    (is (every? #(= "xfseq.bench.Phase3UnaryBenchmark" (:class %))
+                (:cells screen)))
+    (is (every? #(contains? #{"construct" "first" "prefix8" "traverse"
+                              "reduceUnretained" "reduceRetained"}
+                            %)
+                (map :method (:cells screen))))))
+
+(deftest phase3-focused-manifest-exposes-diagnosis-vocabulary
+  (let [manifest (registry/read-manifest
+                   "bench/manifests/phase3-focused-screen.edn")
+        decision (registry/read-manifest
+                  "bench/manifests/phase3-focused-decision.edn")]
+    (is (= :phase3 (:phase manifest)))
+    (is (= :screen (:profile manifest)))
+    (is (= :decision (:profile decision)))
+    (is (= 237 (count (registry/manifest-identities manifest))))
+    (is (= 241 (count (registry/manifest-identities decision))))
+    (is (every? (set registry/phase3-focused-source-kinds)
+                ["map-entries" "sorted-map-entries" "repeat" "iterate"]))
+    (is (every? (set ["identity" "arithmetic" "heavy"
+                      "selectivity-0" "selectivity-1" "selectivity-50"
+                      "selectivity-99" "selectivity-100" "take"])
+                registry/phase3-focused-workloads))
+    (is (some #(= "java-mixed-object-nonreducing-v2" %)
+              registry/phase3-focused-implementations))))
+
+(deftest phase3-focused-manifest-rejects-inapplicable-cells
+  (let [manifest-file (temporary-path ".phase3-focused.edn")
+        base {"implementation" ["java-dechunked-object-reduced-aware-v2"]
+              "operation" ["map"]
+              "sourceKind" ["list"]
+              "size" ["8"]
+              "workload" ["identity"]
+              "takeCount" ["0"]}]
+    (try
+      (registry/write-edn-new! manifest-file
+                               (focused-phase3-manifest base))
+      (is (map? (registry/read-manifest manifest-file)))
+      (.delete (io/file manifest-file))
+      (registry/write-edn-new!
+        manifest-file
+        (focused-phase3-manifest (dissoc base "takeCount")))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest manifest-file)))
+      (.delete (io/file manifest-file))
+      (registry/write-edn-new!
+        manifest-file
+        (focused-phase3-manifest (assoc base "extra" ["unexpected"])))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest manifest-file)))
+      (.delete (io/file manifest-file))
+      (registry/write-edn-new!
+        manifest-file
+        (focused-phase3-manifest (assoc base "sourceKind" ["vector"])))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest manifest-file)))
+      (.delete (io/file manifest-file))
+      (registry/write-edn-new!
+        manifest-file
+        (focused-phase3-manifest (assoc base "workload" ["take"])))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest manifest-file)))
+      (.delete (io/file manifest-file))
+      (registry/write-edn-new!
+        manifest-file
+        (assoc (focused-phase3-manifest
+                 (assoc base "implementation" ["transduce"]))
+               :cells [{:id "test-focused-transduce-construct"
+                        :class "xfseq.bench.Phase3FocusedBenchmark"
+                        :method "construct"
+                        :params (assoc base "implementation"
+                                       ["transduce"])}]))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest manifest-file)))
+      (.delete (io/file manifest-file))
+      (registry/write-edn-new!
+        manifest-file
+        (assoc (focused-phase3-manifest
+                 (assoc base "implementation" ["transduce"]))
+               :cells [{:id "test-focused-transduce-retained"
+                        :class "xfseq.bench.Phase3FocusedBenchmark"
+                        :method "reduceRetained"
+                        :params (assoc base "implementation"
+                                       ["transduce"])}]))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest manifest-file)))
+      (finally
+        (.delete (io/file manifest-file))))))
+
+(deftest phase3-smoke-validation-requires-direct-controls-and-iterator
+  (let [result-file (temporary-path ".phase3.json")
+        implementations registry/phase3-implementations
+        retained-implementations (vec (remove #{"transduce"}
+                                             implementations))
+        rows (vec (concat
+                    (mapcat (fn [operation]
+                              (map #(phase3-row % "first" "list" operation)
+                                   implementations))
+                            registry/phase3-operations)
+                    (map #(phase3-row % "reduceUnretained" "iterator")
+                         implementations)
+                    (map #(phase3-row % "reduceRetained" "iterator")
+                         retained-implementations)))]
+    (try
+      (registry/write-json-new! result-file rows)
+      (is (:phase3? (registry/validate-phase3-smoke! result-file)))
+      (finally
+        (.delete (io/file result-file))))))
+
+(deftest phase3-manifests-and-smoke-reject-incomplete-shapes
+  (let [valid-params {"implementation" ["core-direct"]
+                      "operation" ["map"]
+                      "sourceKind" ["list"]
+                      "size" ["8"]}
+        missing-implementation (dissoc valid-params "implementation")
+        malformed-size (assoc valid-params "size" [])
+        manifest-files (mapv temporary-path [".phase3-missing.edn"
+                                             ".phase3-malformed.edn"
+                                             ".phase3-nil.edn"
+                                             ".phase3-transduce-construct.edn"])
+        result-file (temporary-path ".phase3-incomplete.json")
+        implementations registry/phase3-implementations
+        retained-implementations (vec (remove #{"transduce"}
+                                             implementations))
+        valid-rows (vec (concat
+                          (mapcat (fn [operation]
+                                    (map #(phase3-row % "first" "list" operation)
+                                         implementations))
+                                  registry/phase3-operations)
+                          (map #(phase3-row % "reduceUnretained" "iterator")
+                               implementations)
+                          (map #(phase3-row % "reduceRetained" "iterator")
+                               retained-implementations)))
+        no-iterator (mapv #(if (= "iterator" (get-in % [:params :sourceKind]))
+                              (assoc-in % [:params :sourceKind] "list")
+                              %)
+                          valid-rows)
+        no-required-sink (vec (remove #(= "reduceRetained"
+                                          (let [name (:benchmark %)
+                                                split (.lastIndexOf ^String name ".")]
+                                            (subs name (inc split))))
+                                     valid-rows))
+        no-operation (vec (remove #(= "take" (get-in % [:params :operation]))
+                                  valid-rows))
+        transduce-retained (conj valid-rows
+                                  (phase3-row "transduce" "reduceRetained"
+                                               "iterator"))]
+    (try
+      (registry/write-edn-new! (nth manifest-files 0)
+                               (phase3-manifest missing-implementation))
+      (registry/write-edn-new! (nth manifest-files 1)
+                               (phase3-manifest malformed-size))
+      (registry/write-edn-new! (nth manifest-files 2)
+                               (assoc (phase3-manifest valid-params)
+                                      :cells [{:id "test-phase3-nil"
+                                               :class "xfseq.bench.Phase3UnaryBenchmark"
+                                               :method "first"
+                                               :params nil}]))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest (nth manifest-files 0))))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest (nth manifest-files 1))))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest (nth manifest-files 2))))
+      (registry/write-edn-new!
+        (nth manifest-files 3)
+        (assoc (phase3-manifest
+                 (assoc valid-params "implementation" ["transduce"]))
+               :cells [{:id "test-phase3-transduce-construct"
+                        :class "xfseq.bench.Phase3UnaryBenchmark"
+                        :method "construct"
+                        :params (assoc valid-params
+                                       "implementation" ["transduce"])}]))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest (nth manifest-files 3))))
+      (registry/write-json-new! result-file no-iterator)
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/validate-phase3-smoke! result-file)))
+      (.delete (io/file result-file))
+      (registry/write-json-new! result-file no-required-sink)
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/validate-phase3-smoke! result-file)))
+      (.delete (io/file result-file))
+      (registry/write-json-new! result-file transduce-retained)
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/validate-phase3-smoke! result-file)))
+      (.delete (io/file result-file))
+      (registry/write-json-new! result-file no-operation)
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/validate-phase3-smoke! result-file)))
+      (finally
+        (doseq [file (conj (vec manifest-files) result-file)]
+          (.delete (io/file file)))))))
 
 (deftest phase2-profile-settings-are-explicit
   (let [decision (:decision registry/profiles)

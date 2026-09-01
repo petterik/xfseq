@@ -66,6 +66,88 @@
    "xfseq.bench.Phase2BufferBenchmark"
    #{"appendAndFlush"}})
 
+(def phase3-source-kinds
+  ["list" "vector" "subvector" "range" "set" "array" "iterable"
+   "iterator"])
+
+(def phase3-implementations
+  ["core-direct" "candidate-direct" "xfseq-generic" "sequence" "eduction"
+   "transduce"])
+
+(def phase3-operations
+  ["map" "filter" "remove" "take"])
+
+(def phase3-sizes sizes)
+
+(def phase3-parameter-registry
+  {:sources phase3-source-kinds
+   :sizes phase3-sizes
+   :operations phase3-operations
+   :implementations phase3-implementations
+   :sinks ["construct" "first" "prefix8" "traverse" "vector"
+           "reduceUnretained" "reduceRetained"]})
+
+(def phase3-benchmark-methods
+  {"xfseq.bench.Phase3UnaryBenchmark"
+   #{"construct" "first" "prefix8" "traverse" "vector"
+     "reduceUnretained" "reduceRetained"}})
+
+(def phase3-parameter-values
+  {"implementation" (set phase3-implementations)
+   "operation" (set phase3-operations)
+   "sourceKind" (set phase3-source-kinds)
+   "size" (set (map str phase3-sizes))})
+
+(def phase3-required-parameter-keys
+  #{"implementation" "operation" "sourceKind" "size"})
+
+;; The primary Phase 3 manifests deliberately keep the exact four-key
+;; identity used by the tiny smoke.  Slice 4 needs a broader, focused lane
+;; for workload/selectivity/source-shape diagnosis; it is a separate class
+;; and vocabulary so adding those dimensions cannot silently change the
+;; primary receipts.
+(def phase3-focused-source-kinds
+  ["list" "lazy-list" "vector" "subvector" "range" "set"
+   "map-entries" "sorted-map-entries" "array" "iterable" "iterator"
+   "repeat" "iterate"])
+
+(def phase3-focused-implementations
+  (vec (concat phase3-implementations candidate-ids)))
+
+(def phase3-focused-workloads
+  ["identity" "arithmetic" "heavy" "selectivity-0" "selectivity-1"
+   "selectivity-50" "selectivity-99" "selectivity-100" "take"])
+
+(def phase3-focused-take-counts
+  ["0" "1" "8" "31" "32" "33" "source-length" "small-prefix"
+   "large-prefix"])
+
+(def phase3-focused-required-parameter-keys
+  #{"implementation" "operation" "sourceKind" "size" "workload"
+    "takeCount"})
+
+(def phase3-focused-parameter-registry
+  {:sources phase3-focused-source-kinds
+   :sizes phase3-sizes
+   :operations phase3-operations
+   :workloads phase3-focused-workloads
+   :take-counts phase3-focused-take-counts
+   :implementations phase3-focused-implementations
+   :sinks (get phase3-parameter-registry :sinks)})
+
+(def phase3-focused-benchmark-methods
+  {"xfseq.bench.Phase3FocusedBenchmark"
+   #{"construct" "first" "prefix8" "traverse" "vector"
+     "reduceUnretained" "reduceRetained"}})
+
+(def phase3-focused-parameter-values
+  {"implementation" (set phase3-focused-implementations)
+   "operation" (set phase3-operations)
+   "sourceKind" (set phase3-focused-source-kinds)
+   "size" (set (map str phase3-sizes))
+   "workload" (set phase3-focused-workloads)
+   "takeCount" (set phase3-focused-take-counts)})
+
 (declare valid-number? valid-score-error? valid-gc-allocation? validate-result!)
 
 (def profiles
@@ -236,14 +318,17 @@
   `commands` is a vector of exact argv vectors, retained as data so a result
   can be reproduced without reconstructing shell quoting."
   ([profile result-path jar-path commands]
-   (environment profile nil result-path jar-path commands))
+   (environment :phase2 profile nil result-path jar-path commands))
   ([profile run-id result-path jar-path commands]
+   (environment :phase2 profile run-id result-path jar-path commands))
+  ([phase profile run-id result-path jar-path commands]
    (let [^java.lang.Runtime runtime (Runtime/getRuntime)
          ^java.lang.management.RuntimeMXBean mx
          (ManagementFactory/getRuntimeMXBean)
          result-file (io/file result-path)
          jar-file (io/file jar-path)]
      {:schema-version 1
+      :phase phase
       :profile profile
       :run-id run-id
       :jmh-version jmh-version
@@ -272,7 +357,10 @@
                :sha256 (sha256-file result-file)
                :bytes (.length result-file)}
       :commands commands
-      :parameters parameter-registry})))
+      :parameters (if (= :phase3 phase)
+                    (assoc phase3-parameter-registry
+                           :focused phase3-focused-parameter-registry)
+                    parameter-registry)})))
 
 (defn- read-json
   [file]
@@ -284,21 +372,27 @@
   [file]
   (let [file (io/file file)
         manifest (edn/read-string (slurp file))
-        cells (:cells manifest)]
+        cells (:cells manifest)
+        phase (or (:phase manifest) :phase2)
+        methods (if (= :phase3 phase)
+                  (merge phase3-benchmark-methods
+                         phase3-focused-benchmark-methods)
+                  benchmark-methods)]
     (when-not (and (= 1 (:schema-version manifest))
+                   (#{:phase2 :phase3} phase)
                    (#{:screen :decision} (:profile manifest))
                    (vector? cells)
                    (seq cells))
-      (throw (ex-info "Invalid Phase 2 benchmark manifest header"
+      (throw (ex-info "Invalid benchmark manifest header"
                       {:path (.getPath file) :manifest manifest})))
     (let [ids (map :id cells)]
       (when-not (and (every? string? ids)
                      (= (count ids) (count (distinct ids))))
-        (throw (ex-info "Phase 2 benchmark manifest IDs must be unique strings"
+        (throw (ex-info "Benchmark manifest IDs must be unique strings"
                         {:path (.getPath file)}))))
     (doseq [{:keys [id class method params]} cells]
-      (when-not (and (contains? benchmark-methods class)
-                     (contains? (get benchmark-methods class) method)
+      (when-not (and (contains? methods class)
+                     (contains? (get methods class) method)
                      (map? params)
                      (every? (fn [[key values]]
                                (and (string? key)
@@ -306,12 +400,111 @@
                                     (seq values)
                                     (every? string? values)))
                              params))
-        (throw (ex-info "Invalid Phase 2 benchmark manifest cell"
+        (throw (ex-info "Invalid benchmark manifest cell"
                         {:path (.getPath file)
                          :id id
                          :cell {:class class :method method :params params}}))))
-    (doseq [{:keys [class params id]} cells]
+    (doseq [{:keys [class method params id]} cells]
       (cond
+        (and (= phase :phase3)
+             (= class "xfseq.bench.Phase3UnaryBenchmark"))
+        (do
+          (when-not (= phase3-required-parameter-keys (set (keys params)))
+            (throw (ex-info "Phase 3 benchmark cell must name exactly the required parameters"
+                            {:path (.getPath file)
+                             :id id
+                             :required phase3-required-parameter-keys
+                             :actual (set (keys params))})))
+          (doseq [[key values] params]
+            (let [allowed (get phase3-parameter-values key)]
+              (when-not (and allowed (every? allowed values))
+                (throw (ex-info "Invalid Phase 3 benchmark parameter"
+                                {:path (.getPath file)
+                                 :id id
+                                 :parameter key
+                                 :values values})))))
+          (when (and (contains? #{"construct" "reduceRetained"} method)
+                     (some #{"transduce"} (get params "implementation")))
+            (throw (ex-info "Phase 3 transduce has no construct/retained-head sink"
+                            {:path (.getPath file) :id id
+                             :method method
+                             :implementations (get params "implementation")})))
+          nil)
+
+        (and (= phase :phase3)
+             (= class "xfseq.bench.Phase3FocusedBenchmark"))
+        (do
+          (when-not (= phase3-focused-required-parameter-keys
+                      (set (keys params)))
+            (throw (ex-info "Focused Phase 3 benchmark cell must name exactly the required parameters"
+                            {:path (.getPath file)
+                             :id id
+                             :required phase3-focused-required-parameter-keys
+                             :actual (set (keys params))})))
+          (doseq [[key values] params]
+            (let [allowed (get phase3-focused-parameter-values key)]
+              (when-not (and allowed (every? allowed values))
+                (throw (ex-info "Invalid focused Phase 3 benchmark parameter"
+                                {:path (.getPath file)
+                                 :id id
+                                 :parameter key
+                                 :values values})))))
+          (let [operations (get params "operation")
+                workloads (get params "workload")
+                sources (get params "sourceKind")
+                implementations (get params "implementation")]
+            (when (and (contains? #{"construct" "reduceRetained"} method)
+                       (some #{"transduce"} implementations))
+              (throw (ex-info "Focused Phase 3 transduce has no construct/retained-head sink"
+                              {:path (.getPath file) :id id
+                               :method method :implementations implementations})))
+            (when-not (every?
+                       (fn [[operation workload]]
+                         (case operation
+                           "map" (contains? #{"identity" "arithmetic" "heavy"}
+                                             workload)
+                           "take" (= "take" workload)
+                           (contains? #{"selectivity-0" "selectivity-1"
+                                        "selectivity-50" "selectivity-99"
+                                        "selectivity-100"}
+                                       workload)))
+                       (for [operation operations
+                             workload workloads]
+                         [operation workload]))
+              (throw (ex-info "Focused Phase 3 workload does not apply to operation"
+                              {:path (.getPath file) :id id
+                               :operations operations :workloads workloads})))
+            (doseq [candidate-id implementations
+                    source-kind sources]
+              (when-let [source-mode (get candidate-source-modes candidate-id)]
+                (when-not (or (= :mixed source-mode)
+                              (and (= :dechunked source-mode)
+                                   (= "list" source-kind))
+                              (and (= :chunked source-mode)
+                                   (= "vector" source-kind)))
+                  (throw (ex-info "Focused Phase 3 candidate is inapplicable to source"
+                                  {:path (.getPath file) :id id
+                                   :candidate-id candidate-id
+                                   :source-kind source-kind
+                                   :source-mode source-mode}))))
+              (when (and (str/starts-with? candidate-id "java-")
+                         (str/includes? candidate-id "nonreducing")
+                         (some #{"take"} operations))
+                (throw (ex-info "Focused Phase 3 non-reducing candidate cannot run take"
+                                {:path (.getPath file) :id id
+                                 :candidate-id candidate-id
+                                 :operations operations}))))
+            (when (and (some #{"repeat" "iterate"} sources)
+                       (contains? #{"traverse" "vector" "reduceUnretained"
+                                    "reduceRetained"}
+                                  method)
+                       (some #(not= "take" %) operations))
+              (throw (ex-info "Focused Phase 3 infinite source needs a terminating take"
+                              {:path (.getPath file) :id id
+                               :source-kinds sources :operations operations
+                               :method method}))))
+          nil)
+
         (= class "xfseq.bench.Phase2JavaBenchmark")
         (doseq [candidate-id (get params "candidateId")
                 source-kind (get params "sourceKind")]
@@ -338,7 +531,7 @@
           (throw (ex-info "Manifest contains an unknown buffer policy"
                           {:path (.getPath file) :id id
                            :policy (get params "policy")})))))
-    (assoc manifest :path (.getPath file))))
+    (assoc manifest :phase phase :path (.getPath file))))
 
 (defn- parameter-combinations
   [params]
@@ -545,6 +738,56 @@
       (throw (ex-info "Smoke result did not exercise distinct candidate IDs"
                       {:candidate-ids ids})))
     (assoc summary :smoke? true)))
+
+(defn validate-phase3-smoke!
+  "Validate the Phase 3 smoke's direct/control implementations and fixtures."
+  [file]
+  (let [summary (validate-result! file :smoke)
+        rows (read-json file)
+        implementations (set (keep #(get-in % [:params :implementation]) rows))
+        operations (set (keep #(get-in % [:params :operation]) rows))
+        source-kinds (set (keep #(get-in % [:params :sourceKind]) rows))
+        methods (set (map (fn [row]
+                            (let [name (:benchmark row)
+                                  split (.lastIndexOf ^String name ".")]
+                              (subs name (inc split))))
+                          rows))
+        required-implementations (set phase3-implementations)
+        invalid-transduce-sinks
+        (->> rows
+             (filter (fn [row]
+                      (and (= "transduce"
+                              (get-in row [:params :implementation]))
+                           (contains? #{"construct" "reduceRetained"}
+                                      (let [name (:benchmark row)
+                                            split (.lastIndexOf ^String name ".")]
+                                        (subs name (inc split)))))))
+             vec)]
+    (when-not (some #(str/starts-with?
+                       %
+                       "xfseq.bench.Phase3UnaryBenchmark")
+                    (:benchmarks summary))
+      (throw (ex-info "Phase 3 smoke did not exercise its benchmark class"
+                      {:benchmarks (:benchmarks summary)})))
+    (when-not (= required-implementations implementations)
+      (throw (ex-info "Phase 3 smoke omitted an implementation"
+                      {:required required-implementations
+                       :actual implementations})))
+    (when-not (= (set phase3-operations) operations)
+      (throw (ex-info "Phase 3 smoke must exercise exactly all four operations"
+                      {:required (set phase3-operations)
+                       :actual operations})))
+    (when (seq invalid-transduce-sinks)
+      (throw (ex-info "Phase 3 smoke contains an inapplicable transduce sink"
+                      {:rows invalid-transduce-sinks})))
+    (doseq [method ["first" "reduceUnretained" "reduceRetained"]]
+      (when-not (contains? methods method)
+        (throw (ex-info "Phase 3 smoke omitted a required sink"
+                        {:required method :methods methods}))))
+    (when-not (contains? source-kinds "iterator")
+      (throw (ex-info "Phase 3 smoke omitted the fresh iterator fixture"
+                      {:source-kinds source-kinds})))
+    (assoc summary :phase3? true)))
 
 (defn merge-results!
   "Merge independently executed JMH JSON arrays into one new durable result."
