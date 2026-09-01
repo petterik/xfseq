@@ -1,6 +1,6 @@
 # Implementation #1, Phase 3: unary core-function compatibility
 
-Status: Ready for implementation
+Status: Awaiting final review
 
 Parent design: [`docs/01-transducer-backed-lazy-seqs.md`](../01-transducer-backed-lazy-seqs.md)
 
@@ -1450,3 +1450,61 @@ raw evidence and are not treated as a causal allocation proof.
 | 2026-09-01 22:52 CEST | Slice 4 checkpoint | `/root/phase3_slice1` | Recorded per-function adoption decisions, no-reduced/result-type trigger outcomes, skipped-cell confidence limits, raw evidence hashes, and preserved baseline/receipt paths. | `map`, `filter`, `remove`, and `take` all reject the current public compatible replacement under the declared no-regression gate. Slice 5/6 were not started; no commit made. |
 | 2026-09-01 | Slice 4 parent checkpoint | `/root` | Inspected the manifests, receipts, environment metadata, profile artifacts, registry fixture, decision arithmetic, trigger conclusions, and interruption history; corrected one ambiguous sentence so the first focused decision cancellation is attributed only to the agent/parent. Independently reran full `check`, registry tests, linkage, exact validation of the 309-row focused decision, 72-row targeted decision, and 74-row targeted GC receipt, hash/row checks, and diff hygiene. | Accepted: full check 53 / 4,605, lint 0/0, reflection clean; registry 9/64; linkage passed; all receipt hashes and row counts matched; recomputed direct regressions matched the recorded 14/15, 6/10, 6/10, 10/13 focused counts and 7/7 targeted map/take counts. Ready for the Slice 4 checkpoint commit; Slice 5/6 remain skipped because their triggers were not met. |
 | 2026-09-01 | Slice 4 checkpoint SHA record | `/root` | Recorded the accepted Slice 4 checkpoint before starting any later slice. | Checkpoint `0652f05`; Slice 5 and Slice 6 remain skipped, so the next executable work is Slice 7 cleanup and final handoff only. |
+
+## Slice 7 consolidation and final handoff
+
+Slice 7 starts from accepted repository checkpoint `819e114` and the accepted
+Slice 4 content checkpoint `0652f05`. Slice 5's operation-owned no-`Reduced`
+promotion and Slice 6's custom-result experiment remain skipped because their
+recorded triggers were not met. The final audit found no unpromoted
+`IReduceInit`/custom-result prototype, no Phase 3 no-reduced production
+machinery, and no dead benchmark/test support that can be removed without
+breaking a named receipt or validation path. The retained focused harness,
+repaired Java controls, manifests, and diagnostic profiles are all referenced
+by the recorded evidence; the malformed-regex JIT output remains as an
+explicitly excluded raw diagnostic. No new mechanism or production change was
+made.
+
+| Check | Evidence |
+|---|---|
+| Focused unary semantics | `clojure -Srepro -M:test -n xfseq.unary-oracle-test` passed 24 tests / 1,699 assertions / 0 failures / 0 errors. |
+| Phase 2 semantic preservation | `clojure -Srepro -M:test -n xfseq.object-engine-test -n xfseq.object-candidate-test` passed 28 tests / 2,860 assertions / 0 failures / 0 errors. |
+| Full local check | `clojure -Srepro -T:build check '{}'` passed lint 0/0, compiler reflection clean, 53 tests / 4,605 assertions / 0 failures / 0 errors. |
+| Phase 2 preservation smoke | With the stale JMH lock bypassed explicitly via `JAVA_TOOL_OPTIONS=-Djmh.ignoreLock=true`, `clojure -Srepro -T:build bench-smoke '{:run-id "slice7-20260901-phase2-preservation1"}'` followed by `clojure -Srepro -T:build bench-validate '{:run-id "slice7-20260901-phase2-preservation1"}'` passed 19 rows / 10 benchmark identities and both required Java candidate IDs. Result `results/phase-2/bench/smoke-819e1144a48dfc7ac6e21e9709bbdcfc75bee156-slice7-20260901-phase2-preservation1.json` SHA-256 `3a7f20e0db994e904466cdde72ad53b4e3d63951b04791c8d3e531dec4ddac51`; environment `results/phase-2/environment-819e1144a48dfc7ac6e21e9709bbdcfc75bee156-slice7-20260901-phase2-preservation1.edn` SHA-256 `3d81266d5c265d48f69eb124e0e3c7791c76a808c3c90d17ab57fe0035892dba`. Existing Phase 2 receipts were not overwritten. |
+| Phase 3 linkage | `clojure -Srepro -T:build phase3-bench-linkage '{}'` passed on checkpoint `819e1144a48dfc7ac6e21e9709bbdcfc75bee156`; report `target/bench/phase3-linkage-819e1144a48dfc7ac6e21e9709bbdcfc75bee156.txt` SHA-256 `df4717b962a3ebfde1e90604af1345f38a13296f7b291da50fae3987670c3f0f` contains no `Var` lookups and includes the required direct core/candidate static calls and timed sink wrappers. |
+| Phase 3 manifest/receipt validation | `validate-manifest!` revalidated every durable Slice 4 result: primary screen 184 rows with manifest SHA-256 `505418c010699e3d93fc32486de311517584e51ae98d03c9852ee521c3fb4bb4` and result SHA-256 `a1e09a98d31c19a8730f650123ec206761d74e4642e7a40594be220f8c00c5bd`; focused screen 237 / `b4b55f7c271945dcd9ea81cc8bc081da4a690df4c22cc0806bd9205067683b36` / `2aee0128190f7aabc59d997fa4f0ac1fc7468328fc56bf30d8a3ead2e74d6c13`; focused decision 309 / `bdab4f90ea8c6382d8dc1d86be6f50fb3384d958619c0e62827c1b66f5d66779` / `2c9cbfa5cbdde800cf6259baf30c505ef9af4aaa3e9fafa15169d6c4434f8d43`; targeted decision 72 / `733f4355ed6e1b9bac8c1ca95bf7900277e6a1029e6760e2b043a1ace5634cb3` / `519b0c23ecadbe201658a6c8a33b5ad682f85dd675bc99afba2378f3e0370208`; targeted GC 74 / `b825bc44f2d828f3f51ce553d49a071f8779273c8a00d98b324dbeddc7fc09b4` / `2fe8baedd336619d704e1fe771889d6c0654e5405bbcb7c12c416a78d0c7e84f`. |
+| Diff hygiene and scope | `git diff --check` passed. No Slice 5/6 code, Phase 4 work, production semantic change, benchmark implementation change, or performance claim was added. |
+
+### Exit-criterion audit
+
+| # | Criterion | Result |
+|---:|---|---|
+| 1 | Core transducer arities delegate directly and public paths no longer use analyzer-generated xforms. | Pass — Slice 1 oracle, source diff, and accepted direct-linkage evidence. |
+| 2 | Unary collection arities route through one closed compatibility boundary and ordinary `LazySeq`. | Pass — Slice 2 profile implementation and accepted focused oracle. |
+| 3 | Construction is lazy; successful xform application/completion occur exactly once. | Pass — direct oracle construction/trace coverage. |
+| 4 | Direct differential values pass the Phase 3 source/size/operation/take matrix. | Pass — accepted semantic matrix and primary/focused fresh-fixture trials. |
+| 5 | Source advance, mapper/predicate order, batching, output chunks, and downstream calls match core. | Pass — accepted trace/chunk/downstream oracle cases. |
+| 6 | Invalid and non-positive `take`, source order, and exception order match core. | Pass — accepted four-force and take guard oracle cases. |
+| 7 | Initial/later failures match class, point, prefix, trace, and same-node behavior. | Pass — accepted four-force failure matrix. |
+| 8 | Empty/non-empty seq surface, metadata, equality/hash, iteration, reduction, cache, one-shot, and concurrency pass. | Pass — focused unary oracle 24 / 1,699. |
+| 9 | Generic `xf-seq` and retained Phase 2 candidates keep tested contracts. | Pass — Phase 2 suites 28 / 2,860 and preservation smoke. |
+| 10 | Full local check has no lint or unexpected reflection finding. | Pass — 53 / 4,605, lint 0/0, reflection clean. |
+| 11 | Phase 3 smoke, screen, decision, GC, applicability, identity, metric, and non-overwrite gates pass. | Pass — accepted receipts plus all-receipt manifest validation. |
+| 12 | Direct core, public candidate, generic controls, `sequence`, `eduction`, `transduce`, and applicable Java baselines are represented. | Pass — accepted manifests/trials; transduce retained-head inapplicability is explicitly rejected. |
+| 13 | Retained/unretained reductions use fresh heads with throughput/allocation evidence. | Pass — targeted decision and 74-row GC lane. |
+| 14 | Every repeatable >3% regression is followed up; no added mechanism lacks its gate. | Pass — focused counts, targeted confirmation, GC/JIT/JFR diagnostics, and no unearned promotion. |
+| 15 | Any custom result stays outside product code; positive evidence would stop for replanning. | Pass — Slice 6 trigger not met; no custom result prototype exists. |
+| 16 | Each function receives an evidence-backed adoption recommendation. | Pass — `map`, `filter`, `remove`, and `take` all reject the compatible replacement under the no-regression gate. |
+| 17 | Commands, versions, raw paths/hashes, checkpoints, skipped slices, and sequential run log are recorded. | Pass — plan sections through Slice 7 and receipts above. |
+| 18 | Normal run ends at `Awaiting final review`; no Phase 4 work begins. | Pass — this plan's status is now `Awaiting final review`; Phase 4 was not started. |
+
+### Slice 7 run log
+
+| Date/time | Stage | Agent | Work | Result |
+|---|---|---|---|---|
+| 2026-09-01 | Slice 7 start | `/root/phase3_slice1` | Started from accepted checkpoint `819e114` / Slice 4 content checkpoint `0652f05`; audited Slice 5/6 trigger state and all Phase 3 benchmark/test files for dead or unpromoted machinery. | Slice 5 and Slice 6 remain skipped; no dead prototype was found that could be removed without losing a named receipt or validation path. |
+| 2026-09-01 | Semantic gates | `/root/phase3_slice1` | Ran focused unary semantics, Phase 2 engine/candidate suites, and full local check. | Focused 24 / 1,699; Phase 2 28 / 2,860; full 53 / 4,605; lint 0/0; reflection clean; all passed. |
+| 2026-09-01 | Phase 2 preservation | `/root/phase3_slice1` | Ran a fresh non-overwriting Phase 2 smoke with explicit JMH stale-lock override and validated its receipt. | 19 rows / 10 identities; result/environment hashes recorded above; prior receipts preserved. |
+| 2026-09-01 | Phase 3 linkage/receipts | `/root/phase3_slice1` | Rebuilt AOT callers, reran Phase 3 linkage, and validated primary/focused/targeted screen, decision, and GC receipts against exact manifests. | Linkage has no Var lookup; all five durable Phase 3 result/manifest pairs validated with exact row counts and hashes. |
+| 2026-09-01 | Consolidation | `/root/phase3_slice1` | Recorded the no-cleanup audit, exit-criterion results, checkpoint SHAs, versions/paths/hashes, and terminal status. | No production/harness implementation edits; no commit; status `Awaiting final review`. |
+| 2026-09-01 | Slice 7 parent checkpoint | `/root` | Inspected the final documentation-only handoff and fresh Phase 2 receipts; independently reran the focused unary oracle, validated the fresh Phase 2 smoke, revalidated all five durable Phase 3 manifest/result pairs, checked receipt hashes/rows, exit-criterion consistency, scope, and diff hygiene. | Accepted: unary oracle 24 / 1,699; Phase 2 smoke 19 rows / 10 identities; Phase 3 receipts 184 / 237 / 309 / 72 / 74 rows with exact recorded hashes; no code change, no Phase 4 work, and status remains `Awaiting final review`. Ready for the final run-stage checkpoint commit. |
