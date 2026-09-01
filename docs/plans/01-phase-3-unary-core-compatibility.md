@@ -1,6 +1,6 @@
 # Implementation #1, Phase 3: unary core-function compatibility
 
-Status: Awaiting final review
+Status: Ready for implementation — unary speed lab
 
 Parent design: [`docs/01-transducer-backed-lazy-seqs.md`](../01-transducer-backed-lazy-seqs.md)
 
@@ -1509,3 +1509,539 @@ made.
 | 2026-09-01 | Consolidation | `/root/phase3_slice1` | Recorded the no-cleanup audit, exit-criterion results, checkpoint SHAs, versions/paths/hashes, and terminal status. | No production/harness implementation edits; no commit; status `Awaiting final review`. |
 | 2026-09-01 | Slice 7 parent checkpoint | `/root` | Inspected the final documentation-only handoff and fresh Phase 2 receipts; independently reran the focused unary oracle, validated the fresh Phase 2 smoke, revalidated all five durable Phase 3 manifest/result pairs, checked receipt hashes/rows, exit-criterion consistency, scope, and diff hygiene. | Accepted: unary oracle 24 / 1,699; Phase 2 smoke 19 rows / 10 identities; Phase 3 receipts 184 / 237 / 309 / 72 / 74 rows with exact recorded hashes; no code change, no Phase 4 work, and status remains `Awaiting final review`. Ready for the final run-stage checkpoint commit. |
 | 2026-09-01 | Slice 7 checkpoint SHA record | `/root` | Recorded the accepted final run-stage handoff commit. | Checkpoint `3044cee`; Phase 3 run is finished at `Awaiting final review`. No later phase was started. |
+
+## Phase 3 unary speed-lab replan
+
+The first Phase 3 run remains a complete, immutable semantic and performance
+checkpoint at `227d6eb`. Its result was that the shared compatibility-profile
+engine is correct but too slow for adoption. On 2026-09-01 the user explicitly
+changed the next research priority: temporarily relax upstream simplicity and
+determine whether any exact-semantics unary implementation can be fast enough.
+This reopens Phase 3 for a bounded speed lab; it does not revise the old raw
+receipts, start multi-source Phase 4, or claim that experimental duplication is
+fit for Clojure core.
+
+For this reopened run, the speed-lab appendix supersedes only the earlier
+one-shared-engine/no-loop-copy selection rule, conditional Slice 5/6 schedule,
+and old terminal Slice 7 state. All accepted semantic contracts, direct-core
+oracle requirements, direct-linking rules, existing evidence, and later-phase
+boundaries remain in force.
+
+### Speed-lab problem and goal
+
+The actual problem is:
+
+> Determine which cost prevents exact unary `map`, then `filter`, from matching
+> or beating direct core, by testing one operation-specific implementation
+> hypothesis at a time and retaining only measured improvements.
+
+Desired outcomes are a reproducible local performance ceiling, a sequence of
+causally interpretable experiments, and either a materially faster compatible
+champion or a strong stop result. The suggested mechanisms—smaller Java
+methods, direct mapper/predicate invocation, direct output construction, and a
+core-shaped state model—are experiments rather than required architecture.
+
+Semantic equivalence is not relaxed. Experimental structural simplicity is:
+workers may temporarily duplicate an operation-specific loop or benchmark
+control, but no experiment becomes the Phase 3 champion merely because it is
+fast. A later review must still decide whether the winning mechanism can be
+made maintainable enough for product or upstream use.
+
+### Speed-lab goals
+
+1. Establish a compact parent-owned direct-on map sentinel and holdout matrix
+   before changing production code.
+2. Verify that an xfseq-local core-shaped benchmark control can reproduce
+   direct-core performance closely enough that the harness has a reachable
+   ceiling.
+3. Test map hypotheses in causal order: method/profile isolation, direct mapper
+   invocation, direct output construction, and—only if still needed—an
+   alternative per-node state shape.
+4. Keep one current champion. Never stack an unmeasured or rejected delta onto
+   the next experiment.
+5. Let the parent, not the implementing worker, run and interpret performance.
+6. After map reaches a terminal result, run one bounded direct-filter experiment
+   because list filter already wins while chunked/vector filter regresses.
+7. End with exact code/evidence checkpoints and a decision to retain a champion,
+   simplify/replan it, or stop ordinary lazy-seq replacement work.
+
+### Speed-lab non-goals
+
+- No multi-source map or Phase 4 work.
+- No `take`, `remove`, broader Phase 5 function, primitive specialization,
+  fusion, `consume`, or `drain` implementation. `remove` may reuse a proven
+  filter driver only in a later reviewed plan.
+- No runtime generation, ASM, source-class whitelist, core fallback, public
+  optimization flag, weak/soft cache, destructive cursor, or GC-dependent
+  behavior.
+- No custom public result or `IReduceInit` experiment in this speed lab.
+- No full release-equivalent matrix after every hypothesis. A full matrix is a
+  later gate only if a compact-matrix champion earns it.
+- No upstream or broad performance claim from sentinel results.
+- No silent change to generic `xf-seq`, Phase 2 candidates, transducer arities,
+  or the already accepted unary oracle.
+
+### Current facts and changed assumption
+
+- The accepted unary oracle passes 24 tests / 1,699 assertions and remains the
+  semantic authority.
+- The focused three-fork decision found direct candidate regressions over 3%
+  in map 14/15, filter 6/10, remove 6/10, and take 10/13 matched cells.
+- The targeted decision confirmed map and take regressions in 7/7 direct pairs.
+- List filter/remove full traversal won about 25–27%, while representative
+  vector work regressed substantially.
+- Direct `transduce`/`eduction` controls show that transformation work can be
+  fast when an ordinary compatible lazy result is not required.
+- Phase 2 JIT evidence found the shared object-step body too large to inline;
+  Phase 3 allocation/JIT/JFR evidence did not identify one unique cause.
+- The public candidate creates its map transducer inside the timed call and
+  routes every mapped value through a reducing function and `ObjectBuffer`.
+- Direct unary map has one output per input, no `Reduced` result, and no
+  completion output. These operation-owned facts make a direct map driver
+  semantically testable without making claims about arbitrary xforms.
+- The former assumption that one shared engine must remain simplest enough for
+  immediate upstream use is suspended for experimental code only. It remains
+  a later promotion constraint.
+
+### Options and priorities
+
+| Item | Impact | Effort | Value | Dependency/evidence | Decision |
+|---|---|---|---|---|---|
+| Compact map sentinel/holdout harness | High | Medium | High | Existing focused JMH and manifest validation | First |
+| Xfseq-local core-shaped map control | High | Low | High | Validates reachable ceiling and linkage | Diagnostic experiment |
+| Small monomorphic map step retaining RF/buffer | High | Medium | High | Shared step is too large to inline | Experiment |
+| Direct mapper invocation retaining buffer | High | Medium | High | Isolates xform/reducing-function cost | Experiment after step isolation |
+| Direct Cons/ArrayChunk output construction | High | Medium | High | Map cardinality is exactly one-to-one | Experiment after direct mapper |
+| Core-shaped per-node state instead of mutable cursor | Medium to high | Medium | Medium | Only if direct-output champion remains behind | Conditional experiment |
+| One evidence-selected combined refinement | Medium | Medium | Medium | Must name one remaining measured cost | Conditional final map experiment |
+| Direct predicate filter driver | High | High | High | Existing list wins and vector regressions | One bounded experiment after map |
+| Filter array strategy comparison | Medium | Medium | Medium | Only if allocation data names compaction cost | Conditional |
+| Custom result / direct reduction cursor | High | High | Unknown | Prior trigger not met; large semantic surface | Reject in speed lab |
+| Runtime generation or ASM | Medium | High | Low now | Static operation-specific paths unexhausted | Reject |
+| Core fallback or source whitelist | Superficially high | Medium | Low | Would hide rather than solve regressions | Reject |
+
+### Confidence ledger
+
+| ID | Kind | Decision, risk, or evidence | Resolution | Confidence |
+|---|---|---|---|---|
+| SLC1 | Fact | Current map losses are too large for a claim based on small tuning. | Accepted 309-row focused and 72-row targeted receipts. | High. |
+| SLC2 | Assumption | Shared method size, reducing-function dispatch, and generic buffering are important removable costs. | Isolate them in that order; reject deltas without cell-local movement. | Medium. |
+| SLC3 | Unknown | An xfseq-local core-shaped implementation can land within 3% of direct core under the current AOT harness. | Benchmark-only core-shaped control before product experiments. | Medium. |
+| SLC4 | Failure mode | A traversal win comes from doing more mapper work during `first` or prefix consumption. | Unary trace oracle plus separate first/prefix sentinel rows. | High confidence in detection. |
+| SLC5 | Failure mode | A vector win overfits identity/1,000 and regresses list, boundary, arithmetic, or mixed-tail cases. | Fixed sentinel plus parent-owned holdouts; no pooled averages. | High confidence in detection. |
+| SLC6 | Failure mode | Machine drift makes a new candidate appear better than the old champion. | Direct-core normalization in every receipt; rerun champion when core shifts >5%. | Medium to high. |
+| SLC7 | Failure mode | Several individually unproven deltas accumulate into an uninterpretable result. | One hypothesis per worker and current-champion rule. | High confidence in prevention. |
+| SLC8 | Unknown | Direct mapper invocation can preserve core's surprising one-shot failure and source-advance behavior. | Complete unary oracle before timing; no semantic waiver. | Medium. |
+| SLC9 | Unknown | Direct object-array output can beat core for partial as well as full sinks. | Boundary/partial/full screen plus targeted GC confirmation. | Low to medium. |
+| SLC10 | Failure mode | A rejected implementation disappears without reproducible code/evidence. | Commit worker implementation at an exact SHA before parent timing, commit immutable receipts/verdict, then have the same worker remove only its implementation delta in a documented cleanup commit. | High confidence in mitigation. |
+| SLC11 | Assumption | Filter deserves a separate bounded attempt even if map stops because its list/vector reversal has a distinct cause. | One direct-predicate experiment after map's terminal decision. | Medium. |
+
+### Sequential commit and rollback protocol
+
+Exactly one `luna_worker` is active. Every worker receives exact file ownership,
+may not spawn sub-agents, and must update this plan's speed-lab log.
+
+For each experiment:
+
+1. Parent records clean HEAD, champion SHA, and applicable baseline receipt.
+2. Worker implements one hypothesis, runs the named semantic checkpoint, and
+   hands back an uncommitted diff. It makes no performance verdict.
+3. Parent inspects the diff and reruns the semantic checkpoint. If valid,
+   parent commits the worker implementation and plan note. This exact commit is
+   the experiment implementation SHA.
+4. Parent runs the compact performance screen from that SHA, records raw paths,
+   hashes, cell-local ratios/intervals, and the verdict in this plan, then
+   commits the evidence.
+5. `accept`: implementation SHA becomes the champion. `iterate`: it becomes
+   champion only when the next hypothesis is a named causal delta. `reject`:
+   the same worker receives a cleanup follow-up that removes only its
+   implementation delta with explicit file edits while preserving receipts and
+   plan evidence; parent validates and commits that restoration before another
+   worker starts.
+6. Parent records every implementation, evidence, and revert SHA before
+   starting the next worker. No reset, checkout-based file destruction, stash,
+   or concurrent worker is used.
+
+A semantic failure is resolved by the same worker before any implementation
+commit, or the worker removes its experiment and records the blocked result.
+For every production map/filter experiment the semantic checkpoint includes
+the complete unary oracle (currently 24 / 1,699). Any change to shared
+initializer/step/buffer code also runs the Phase 2 engine/candidate pair
+(currently 28 / 2,860). Full `check` is required before a delta becomes
+champion and again at final consolidation.
+
+### Compact performance methodology
+
+The map speed manifest has exactly 16 cells / 32 identities: direct core and
+the public candidate for each cell. Twelve primary sentinel cells are
+`first` list/8 identity, `first` vector/32 identity, `prefix8` list/1,000
+identity, `prefix8` vector/32 identity, list/vector 1,000 identity for each of
+`traverse`, `reduceUnretained`, and `reduceRetained`, plus list/vector 1,000
+arithmetic `traverse`. Four parent-owned holdouts are subvector/33 identity
+`prefix8`, lazy-list/1,000 identity `traverse`, vector/33 arithmetic
+`traverse`, and array/1,000 identity `reduceUnretained`. Workers may know these
+dimensions but may not replace or remove them to improve a result. Mixed
+chunk/dechunk tails remain a semantic-oracle fixture rather than adding a new
+JMH source for this lab.
+
+The core-shaped control manifest uses the same 16 cells with direct core and
+the control: 32 exact identities. Filter Slice 8 predeclares its own exact
+manifest before implementation timing.
+
+The rejection screen uses the existing direct-linking-on screen profile:
+fixed 2-GiB G1 heap, two forks, three one-second warmups, and three one-second
+measurements. No new sub-second timing mode is added.
+
+Proceed to confirmation only when a delta either improves at least two
+important cells by about 8%, closes at least half of an existing core gap, or
+produces a directly predicted inlining/allocator change with no supported
+champion regression over 5%. Confirmation uses three forks, five one-second
+warmups/measurements, and four representative separate `-prof gc` rows. JIT or
+JFR is run only for a named question, not after every experiment.
+
+Every confirmation and terminal map decision also includes four focused rows
+against the fastest applicable retained hand-written Java forms: list/vector
+1,000 identity traversal and retained/unretained reduction, using the
+dechunked/chunked reduced-aware and eligible no-reduced IDs. These remain
+internal loop baselines, not direct-core semantic substitutes.
+
+Every verdict is cell-local. A worker delta is rejected for any semantic
+difference, a supported champion regression over 5% in sentinel/holdout cells,
+or a throughput gain purchased by an unexplained material allocation increase.
+It is accepted as champion only with repeatable improvement and no supported
+regression over 3% against the previous champion in the confirmation subset.
+These are iteration rules, not a final core-adoption claim.
+
+If direct core shifts more than 5% from the baseline receipt in comparable
+cells, parent reruns the prior champion before interpreting the experiment.
+Raw JMH scores, errors/confidence intervals, fork samples, bytes/op where run,
+manifest/source/jar/environment hashes, exact argv, dirty state, and source
+evidence hash are retained under non-overwriting `results/phase-3/speed-lab/`
+paths.
+
+### Ordered speed-lab slices
+
+#### Speed Slice 0: compact harness and fresh champion baseline
+
+Ownership:
+
+- speed-lab manifests and registry tests only;
+- minimal build/runner additions only if arbitrary manifest support is
+  insufficient;
+- new non-overwriting `results/phase-3/speed-lab/` receipt layout;
+- this plan's speed-lab evidence/log;
+- no production implementation change.
+
+Work:
+
+1. Encode the fixed sentinel and holdout cells without adding an unconstrained
+   Cartesian matrix.
+2. Reuse the existing Phase 3 focused benchmark and direct-linked wrappers.
+3. Add exact manifest/row validation and non-overwriting result/environment
+   paths.
+4. Parent runs and records the fresh current-champion baseline before Slice 1.
+
+Checkpoint: semantics/linkage/manifest validation pass and a fresh baseline
+receipt exists. Commit worker harness changes, then commit parent baseline
+evidence before the next worker.
+
+#### Speed Slice 1: benchmark-only core-shaped ceiling control
+
+Ownership:
+
+- benchmark-only map construction/control call sites;
+- direct-linkage and trial validation for that control;
+- speed-lab manifest/control receipt and plan evidence;
+- no public or generic product path.
+
+Work:
+
+1. Implement the same core-shaped lazy map structure inside xfseq benchmark
+   scope: per-node chunk test, direct mapper call, direct `Cons`/`ChunkedCons`.
+2. Compare it with direct core in all 16 sentinel/holdout cells.
+3. Continue only if it has no supported regression over 3% in at least 13 of
+   16 cells and no supported regression over 5% in any of the four holdouts.
+   Otherwise stop product experiments and diagnose harness/linkage/compilation
+   asymmetry.
+
+The control never becomes product. Preserve its evidence, then remove it during
+final consolidation unless a named benchmark reference remains useful.
+
+#### Speed Slice 2: monomorphic map step, current RF and buffer
+
+Ownership:
+
+- `ObjectXFSeqInit.java` selection boundary;
+- one new small internal map step;
+- map-specific unary tests and plan log;
+- no filter/remove/take/generic behavior change.
+
+Work:
+
+1. Select a map-only step once at initialization.
+2. Retain the current transformed reducing function, accumulator, completion,
+   `Reduced` check, `ObjectBuffer`, and ordinary `LazySeq` surface.
+3. Remove filter/take/generic policy states and branches from the map hot method.
+4. Record bytecode size and representative inlining only if the screen moves as
+   predicted.
+
+#### Speed Slice 3: direct mapper invocation, current buffer
+
+Ownership:
+
+- `src/xfseq/core.clj` unary map collection call boundary;
+- map initializer/step only;
+- map oracle additions and plan log.
+
+Work:
+
+1. Pass mapper `f` directly to the map initializer while leaving the transducer
+   arity delegated to core.
+2. Call `f.invoke(value)` directly.
+3. Retain `ObjectBuffer` so this slice isolates xform/reducing-function,
+   accumulator, `Reduced`, and completion overhead.
+4. Preserve exact chunk/dechunk advance and exception/re-force behavior.
+
+#### Speed Slice 4: direct map output construction
+
+Ownership:
+
+- current champion map initializer/step;
+- at most one map-only output helper;
+- map boundary/failure tests and plan log;
+- generic `ObjectBuffer` remains unchanged.
+
+Work:
+
+1. Dechunked source maps one value and returns one `Cons`.
+2. Chunked source maps exactly the current input chunk into one object array and
+   returns `ChunkedCons(ArrayChunk(...), continuation)`.
+3. Match core mapper eagerness, `chunkedMore` order, failure point, and same-node
+   re-force behavior.
+4. Measure partial sinks separately so a traversal win cannot hide extra eager
+   work.
+
+#### Speed Slice 5: conditional map state-shape comparison
+
+Trigger: the direct-output champion is semantically exact and materially better
+than baseline but retains a supported important gap to core.
+
+Work: compare the current mutable cursor with one small core-shaped per-node
+Java thunk that captures only mapper/source and creates its continuation after a
+successful force. Keep one winner; do not retain runtime policy between both.
+
+If Slice 4 shows no material movement or remains more than about 10% behind
+core across the important chunked cells, skip this slice and record the stop.
+
+#### Speed Slice 6: conditional evidence-selected map refinement
+
+Trigger: parent evidence names one remaining call, allocation, or non-inlined
+method whose removal can plausibly close the remaining gap. The worker receives
+that one hypothesis only. No menu, speculative cache, or combined cleanup is
+authorized.
+
+#### Speed Slice 7: map terminal decision
+
+Parent consolidates semantic and compact performance evidence. A map champion
+earns `promising` only if it has no supported regression over 3% against the
+previous champion and is within 3% of core or faster across most sentinel and
+holdout cells. This does not authorize an upstream claim or replace the later
+full matrix.
+
+#### Speed Slice 8: bounded direct-filter driver
+
+Run after the map terminal decision, even if map stops, because filter's
+existing list wins and vector losses are distinct evidence.
+
+Ownership:
+
+- filter collection call boundary and one filter-specific initializer/step;
+- filter-specific oracle additions;
+- fixed filter speed manifest and plan log;
+- no remove integration.
+
+Work:
+
+1. Pass predicate directly while leaving the transducer arity delegated to core.
+2. Dechunked path advances in core order, scans rejected values, and returns one
+   `Cons` at the first match.
+3. Chunked path tests the complete input chunk, compacts matches, then returns a
+   chunk even for one to four outputs.
+4. Predeclare exactly 20 cells / 40 direct-core/candidate identities: list and
+   vector 1,000 `first` at selectivity 1/50/99; list and vector 1,000
+   `traverse` at selectivity 0/50/100; list and vector 1,000 retained and
+   unretained reduction at selectivity 50; plus vector/32 `first` and
+   `traverse` at selectivity 1, vector/33 `first` at selectivity 99, and
+   list/32 `traverse` at selectivity 0. Predicate failure around first/middle/
+   last chunk positions remains a semantic test rather than a timed cell.
+
+The filter experiment is promising only if it preserves the established list
+wins and brings important vector cells within about 5% of core without a
+selectivity reversal over 5%.
+
+#### Speed Slice 9: conditional filter allocation refinement
+
+Trigger: Slice 8 is semantically exact and near core, while GC evidence names
+output compaction as material. Compare exactly one fixed-32-array versus
+exact-sized-copy strategy. Keep one; no runtime policy.
+
+#### Speed Slice 10: cleanup and speed-lab handoff
+
+Remove benchmark-only controls and rejected experiment machinery that are no
+longer needed, preserving immutable receipts and decisions. Rerun unary oracle,
+Phase 2 suites/smoke, full check, linkage, exact speed-manifest validation, and
+diff hygiene. Record all implementation/evidence/revert SHAs and set status
+`Awaiting final review` or `Needs replanning` if a fast but structurally
+unacceptable champion needs production redesign. Stop before Phase 4.
+
+### Speed-lab exit criteria
+
+1. Old Phase 3 receipts and semantic decisions remain unchanged and valid.
+2. Every production experiment passes the complete unary oracle before timing.
+3. Generic `xf-seq`, Phase 2 candidates, filter/remove/take unless explicitly
+   owned, and transducer arities retain their contracts.
+4. Sentinel and holdout manifests are fixed before product experiments and
+   validate exact rows/identities.
+5. Direct core and candidate are symmetrically direct-linked in every timed row.
+6. Each worker owns one hypothesis; parent records implementation, evidence,
+   champion, and revert SHAs before the next worker.
+7. Every accepted champion has repeatable cell-local improvement and no
+   supported confirmation regression over 3% against the previous champion.
+8. Every rejected implementation is removed by the same worker's path-scoped
+   cleanup before the next method; its implementation/evidence/cleanup commits,
+   raw evidence, and verdict remain durable.
+9. Core-shaped control, allocation, and JIT/JFR claims remain narrowly labeled;
+   no sentinel result becomes a broad adoption claim.
+10. Map receives a terminal `promising`, `inconclusive`, or `stop` result; filter
+    receives the same after its bounded experiment.
+11. No custom result, runtime generation, source whitelist, fallback-to-core,
+    multi-source map, or later-phase feature enters product code.
+12. Final full semantic/build/Phase 2/linkage/diff gates pass and the run stops
+    before Phase 4.
+
+### Speed-lab planning evidence and reviews
+
+Planning baseline: clean HEAD `227d6eb1bf8b62ec1b89621079b7074ed73775e1`;
+the prior Phase 3 run is preserved at status `Awaiting final review` in that
+commit. The replan reads the complete parent design, complete Phase 3 plan,
+production initializer/step/buffer/public API, unary oracle, focused/primary
+JMH classes/support, manifests, registry/build extension points, and accepted
+raw-result conclusions.
+
+After the final plan revision, `clojure -Srepro -T:build check '{}'` passed
+lint 0/0, compiler reflection clean, 53 tests / 4,605 assertions / 0 failures /
+0 errors; `git diff --check` passed before the planning commit.
+
+#### Speed-lab Review 1
+
+Verdict: revise, then review again.
+
+Uncertain decisions:
+
+1. **Can the old completed run be silently extended?** No. The user changed the
+   structural constraint materially. The old evidence remains immutable and
+   this explicit replan names a new terminal speed-lab result.
+2. **Can workers time and judge their own work?** No. Workers deliver semantic
+   diffs; parent owns symmetric timing and cell-local interpretation.
+3. **How is rejected code reproducible without contaminating the next method?**
+   Commit the semantically valid worker implementation at an exact SHA, commit
+   parent evidence separately, then use the same worker for an explicit
+   path-scoped cleanup commit that restores the champion while keeping evidence.
+4. **Can a compact matrix justify adoption?** No. It decides iteration only;
+   any promising champion still needs a later broad matrix.
+
+Confident changes:
+
+A. Added a harness/ceiling-control stage before production experiments.
+
+B. Split direct mapper invocation from direct output construction so their
+effects remain causal.
+
+C. Made state-shape and one final refinement conditional instead of guaranteed
+work.
+
+D. Kept filter bounded and distinct from map; remove/take remain out of scope.
+
+Review 1 materially clarified cleanup and matrix scope, so Review 2 is
+required.
+
+#### Speed-lab Review 2
+
+Verdict: pass with no unresolved phase-critical finding.
+
+Uncertain decisions resolved:
+
+1. **What prevents hill-climbing into accumulated noise?** Only a confirmed
+   improvement becomes champion; rejected deltas are reverted before the next
+   worker.
+2. **What prevents machine drift from selecting a false winner?** Every receipt
+   includes direct core; parent reruns the prior champion when core shifts over
+   5%.
+3. **When does experimentation stop?** Map state/refinement slices have explicit
+   triggers and a 10% gap stop; filter gets one bounded direct driver plus at
+   most one evidence-triggered allocation comparison.
+
+Confident changes:
+
+A. Existing direct-linking, source setup, sink, retained-head, manifest, and
+receipt validation machinery is reused rather than rebuilt.
+
+B. The complete semantic oracle remains mandatory before every product timing.
+
+C. Benchmark-only copied control code can exist temporarily but cannot become
+product or survive final cleanup without a named evidence need.
+
+D. The terminal state is review/replan, never automatic Phase 4 work.
+
+E. Product deltas have exact unary and shared Phase 2 semantic checkpoints;
+accepted champions also require full `check`.
+
+F. Promising/terminal map decisions retain four focused comparisons with the
+fastest applicable repaired hand-written Java baselines.
+
+### Speed-lab pre-implementation review
+
+Problem validity: pass. The old shared candidate is correctly rejected, and
+operation-specific causal experiments are the smallest way to learn whether an
+exact fast implementation exists.
+
+Semantic fidelity: pass for planning. Direct core and the accepted unary oracle
+remain mandatory; chunk eagerness, source advance, failure/re-force, partial
+consumption, cache, and concurrency cannot be waived for speed.
+
+Performance validity: pass. The parent-owned fixed sentinel/holdout screen is
+direct-on, forked, cell-local, champion-relative, direct-core normalized, and
+escalates only promising deltas to three-fork/GC evidence. It is explicitly not
+a final adoption matrix.
+
+Structural simplicity: pass for an experiment. Temporary duplication is
+authorized only to measure causal operation-specific paths. The current
+champion rule, conditional slices, and final cleanup prevent an unbounded
+second engine from being silently accepted.
+
+Hot-path quality: pass for planning. The sequence isolates method size,
+reducing-function dispatch, buffer/output construction, and state shape instead
+of changing all at once.
+
+Upstream fitness: pass for the research boundary only. The lab cannot promote a
+candidate or make an upstream claim. A fast champion must later be simplified
+and broadly validated; this is an explicit user-owned research tradeoff rather
+than a hidden acceptance criterion.
+
+Verdict: `ready for implementation`.
+
+### Speed-lab agent run log
+
+| Date | Stage | Agent | Work | Result |
+|---|---|---|---|---|
+| 2026-09-01 | User-directed replan | `/root` | Reconstructed the changed goal, preserved the completed Phase 3 evidence, designed sequential parent-timed experiments, reviewed the plan twice, and applied the strict pre-implementation gate. | Ready for implementation after the planning checkpoint commit; no production or benchmark code changed. |
+
+### Speed-lab What matters
+
+- Exact semantics remain non-negotiable; only experimental simplicity is relaxed.
+- One Luna worker tests one hypothesis at a time.
+- Parent owns every performance verdict and commits evidence before another worker.
+- A rejected implementation is reverted before the next method.
+- Map isolates hot-loop costs first; filter receives one bounded follow-up.
+- Compact matrices decide iteration, not upstream adoption.
+- The lab stops before Phase 4 with a champion, a replan, or a credible stop.
