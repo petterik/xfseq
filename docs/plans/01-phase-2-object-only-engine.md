@@ -1,12 +1,8 @@
 # Implementation #1, Phase 2: object-only engine
 
-Status: Implementation in progress (Slices 1–4 implemented; awaiting final
-review)
+Status: Complete
 
-Stage: plan complete; pre-implementation review passed; Slice 1 implemented,
-accepted, and checkpointed; Slice 2 implemented and accepted by parent
-validation and checkpointed; Slice 3 implemented, accepted, and checkpointed;
-Slice 4 implemented; final validation recorded; Awaiting final review
+Stage: final review passed; Phase 2 complete; stopped before Phase 3
 
 Last updated: 2026-09-01
 
@@ -1197,6 +1193,8 @@ Verdict: `ready for implementation`.
 | 2026-09-01 | Slice 4 parent-check follow-up | `/root` and `/root/phase2_slice4` | The parent recomputed the 98-row screen and found five apparent reversals absent from the original 72-row decision subset, then returned the slice for expanded decision/GC evidence, exact duplicate/profile/allocation validation, and refreshed JIT evidence. | Fresh expanded receipts contain 93 exact identities and cover all screen reversals over the gate. The first expanded decision attempt was interrupted after the computer slept during temporary cell 14; `/private/tmp/xfseq-phase2-decision-5314612465463030637/` was never merged or cited, its processes were terminated, and the complete lane was restarted under run ID `slice4-decision-20260901c`. |
 | 2026-09-01 | Slice 4 parent acceptance | `/root` (`gpt-5.6-sol`, medium) | Inspected every timed path and manifest, recomputed cell scores, errors, allocation, and fork means from raw JSON, verified symmetric source/diff hashes and JIT claims, reran representative vector/64 and buffer/33 comparisons with three-fork GC profiling, and reran focused/full validation. | Accepted for checkpoint commit: parent GC receipts reproduce both directions; screen 98/98, decision 93/93, decision-GC 93/93, smoke 19 rows, registry 4/32, candidate 15/2,726, and full 29/2,906 validations pass; linkage/lint/reflection/hygiene are clean; no Slice 4 production-path diff exists. |
 | 2026-09-01 | Slice 4 checkpoint | `/root` (`gpt-5.6-sol`, medium) | Committed the accepted Slice 4 harness extensions, manifests, immutable timing/allocation/JIT receipts, parent spot checks, documentation, and run-state updates without pushing. | `3c0b853bd6e0d62728586737146a02c20f5f1059`; Phase 2 run is checkpointed and remains `Awaiting final review`. |
+| 2026-09-01 | Phase 3 scope handoff | `/root` (`gpt-5.6-sol`, high) | Added a future Phase 3 investigation of direct full-reduction evidence and, only if justified, a memoizing `ISeq`/`IReduceInit` result that preserves ordinary cached realization and retained-head behavior. | Weak/soft-reference and GC-dependent designs are explicitly rejected; destructive or explicitly reducible fusion remains Phase 6. No Phase 3 implementation began. |
+| 2026-09-01 | Final review | `/root` (`gpt-5.6-sol`, high) | Re-read the parent design and complete phase plan; audited the complete production/test/harness diff and raw screen/decision/GC/JIT evidence; independently reran full and focused checks, linkage, exact result validation, a broad supplemental differential probe, and a fresh end-to-end smoke. | No blocker or replanning trigger. Verdict: `ready to complete the phase`; Phase 2 is complete and work stops here. |
 
 ## Slice 4 implementation evidence
 
@@ -1341,3 +1339,88 @@ or upstream claim.
 | 2026-09-01 | Use ordinary Clojure transducers in public benchmark rows. | The analyzer-specialized `xfseq/map` reducing function requires `IFn.OLO` and fails under `sequence`'s `TransformerIterator`; generic xforms make the public comparisons valid and symmetric. |
 | 2026-09-01 | Treat JIT output as structural evidence, not as a score or a reason to add dispatch. | Hot setup/wrapper methods inline, but the 594-byte shared state machine does not; the source-tail proof remains absent. |
 | 2026-09-01 | Recommend `promising` for Phase 3 investigation, with reversals named. | The canonical object engine has repeatable wins on representative list/vector rows and a correct, simple product path, but public reversals and source-specific Java wins prevent a broader adoption claim. |
+
+## Final review
+
+Date: 2026-09-01
+
+Verdict: **ready to complete the phase**.
+
+The smallest accurate mental model is one ordinary `LazySeq`, one deferred
+initializer, one canonical mixed object state machine, and one bounded object
+buffer. The six other repaired object loops remain internal benchmark/test
+candidates; none is selected by production dispatch. Runtime generation,
+primitive selection, and fusion are absent from the generic object path.
+
+### Findings by severity
+
+**Blockers:** none.
+
+**Medium impact, bounded to the next adoption decision:** the public Phase 2
+rows compare generic `xf-seq`, `sequence`, `eduction`, and eager-vector
+`transduce` contexts, not direct unary `clojure.core/map`/`filter`/`remove`/
+`take` full reductions. They therefore support only the recorded `promising`
+recommendation. Phase 3 now explicitly requires direct-core throughput,
+allocation, retained-head, and unretained-head evidence before considering an
+`IReduceInit` result path.
+
+**Low impact, measurement interpretation:** candidate and buffer fixtures use
+JMH invocation-level setup. Throughput excludes setup time, while GC totals can
+include allocations needed to prepare each invocation. The allocation rows are
+still symmetric within each declared cell and were used to reject extra
+machinery, not to claim a product-path allocation win. A later adoption matrix
+should separate result construction from steady-state reduction where that
+distinction decides the outcome.
+
+**Low impact, known exception boundary:** a deliberately adversarial arbitrary
+xform that calls its downstream reducer and then throws cannot be rolled back
+transactionally. Retrying the failed lazy node can therefore differ from
+`sequence` after the exception has already escaped; `sequence` itself also
+does not provide transactional replay in that case. Phase 2 matches the stated
+oracle for exception class and invocation point and covers retry before
+downstream emission plus completion retry. Direct unary Phase 3 functions must
+still test their controlled throw points explicitly; no generic transactional
+retry guarantee is claimed.
+
+### Exit-criterion audit
+
+| Criteria | Final evidence |
+|---|---|
+| 1–3: lazy boundary and driver contract | Direct `LazySeq(ObjectXFSeqInit)` construction; deferred trace tests; one xform application/completion; returned accumulators, `Reduced`, no-overread, and completion ordering tests pass. |
+| 4–6: values, shapes, and sequence behavior | Checked-in deterministic source/size/xform suites pass. A supplemental fresh-source probe also compared 19 source builders × 16 sizes × 16 transforms = 4,864 cells across `sequence`, `transduce`, and `xf-seq`; all matched. Chunked, dechunked, mixed-tail, surface, caching, exception, concurrency, and repeated-realization tests pass. |
+| 7: buffer safety | Order, 32-element maximum chunks, expansion, stack behavior, transferred-slot clearing, and bounded-capacity tests pass; decision/GC evidence rejects the all-chunk alternative. |
+| 8: #1 scope | No generated, reflective, primitive, or fusion mechanism remains on the generic object path. |
+| 9–10: retained candidates | All seven v2 identities map to historical IDs and pass their declared contracts; source-shape and no-reduced preconditions are test/benchmark-adapter restricted. |
+| 11–13: performance decision | Validated JMH 1.37 smoke, 98-row screen, 93-row decision, 93-row GC, linkage, and JIT evidence are preserved. Every material reversal is named; one mixed loop/current buffer is retained; recommendation is `promising`, not adoption. |
+| 14: final validation | Full check: 29 tests / 2,906 assertions / 0 failures / 0 errors, lint 0/0, reflection clean. Focused engine: 13/134; candidates: 15/2,726; registry: 4/32. Linkage, validators, and `git diff --check` pass. |
+| 15: durable handoff | Commands, runtime versions, manifests, raw paths/hashes, decisions, slice SHAs, and sequential agent runs are recorded. The run reached `Awaiting final review`; this review closes it as `Complete`. |
+
+### Fresh final-review receipt
+
+`clojure -Srepro -T:build bench-smoke '{:run-id
+"finalreview-20260901"}'` exited 0 after the normal semantic gate, isolated AOT
+and linkage checks, and all three smoke groups. The non-overwriting result is
+[`smoke-a6afd9...-finalreview-20260901.json`](../../results/phase-2/bench/smoke-a6afd9af25eeed3ed81a98f67f4b0d0f40f10268-finalreview-20260901.json),
+SHA-256 `5df2dc9cbdedf8159ea336f4041d2dad5b569227567e12d3d876d776d3f25658`;
+it validates as 19 rows, 10 benchmark identities, and both required candidate
+IDs. Its [environment receipt](../../results/phase-2/environment-a6afd9af25eeed3ed81a98f67f4b0d0f40f10268-finalreview-20260901.edn)
+has SHA-256
+`dc52e08a1d06237e45fc92902696a9329deb91719f5b240e391be2affda94d02`.
+The executable production and benchmark sources remained at checkpoint HEAD
+`a6afd9af25eeed3ed81a98f67f4b0d0f40f10268`; only documentation and the fresh
+non-overwriting review receipts were added during the final review.
+
+### What matters
+
+- Phase 2 delivers the simple object-only engine and passes its semantic gate.
+- No specialization or buffer-policy branch earned production selection.
+- The benchmark evidence is mixed but sufficiently encouraging to investigate
+  direct unary core replacements in Phase 3.
+- The major reversals remain real and named; `promising` does not mean faster
+  everywhere or ready for an upstream claim.
+- Phase 3 must first measure direct-core full reductions and memory behavior,
+  then consider `IReduceInit` only if a material gap remains.
+- Ordinary memoized seq behavior is non-negotiable; weak references and
+  GC-dependent replay are out.
+- No Phase 3 implementation, cross-JDK claim, or broader adoption decision was
+  made in this review.
