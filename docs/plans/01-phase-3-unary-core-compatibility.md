@@ -1247,7 +1247,8 @@ added.
 
 ## Slice 3 implementation evidence
 
-Slice 3 adds only the isolated Phase 3 direct-unary benchmark harness and its
+Slice 3 was accepted by the parent and checkpointed at `d020b2a`. It adds only
+the isolated Phase 3 direct-unary benchmark harness and its
 registry/manifests/receipts. It does not change production semantics or add a
 performance/adoption claim. The Phase 2 benchmark identities, tasks, jar and
 result namespace remain intact; the preservation smoke below uses a distinct
