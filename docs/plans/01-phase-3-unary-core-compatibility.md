@@ -1175,3 +1175,29 @@ Verdict: `ready for implementation`.
 - No-reduced and `IReduceInit` paths are conditional and disappear if they do
   not clear both semantic and 5%/3% performance gates.
 - Phase 3 ends with per-function evidence and stops before multi-source map.
+
+## Slice 1 implementation evidence
+
+Slice 1 is implemented and awaiting the parent checkpoint review.  It changes
+only the public Clojure transducer surface, test/oracle support, and this plan;
+the Java engine and benchmark sources are unchanged.
+
+| Check | Evidence |
+|---|---|
+| Parent preflight baseline | Before this slice, parent `/root` recorded HEAD `ab696eeab430659f2d9bcdc5bd6e5d18ac6148f8`, a clean worktree, and `clojure -Srepro -T:build check` passing with lint 0/0, clean reflection, 29 tests / 2,906 assertions / 0 failures / 0 errors. |
+| Preserved performance baseline | The Phase 2 forked decision and separate GC receipts remain the preserved pre-change performance baseline. Phase 3 has no direct-unary harness until Slice 3, so this slice makes no performance claim. |
+| Focused oracle | `clojure -Srepro -M:test -n xfseq.unary-oracle-test` passed: 10 tests / 796 assertions / 0 failures / 0 errors. The fixture covers fresh ordered sources, direct values, chunk sizes and node protocols, sparse filter downstream demand, dechunked source/mapper/predicate order, take validation and final `rest`, and one-shot source/function failures. |
+| Focused regression pair | `clojure -Srepro -M:test -n xfseq.core-test -n xfseq.unary-oracle-test` passed: 11 tests / 842 assertions / 0 failures / 0 errors. This includes the preserved generated primitive-path checks alongside the new direct-core oracle. |
+| Full local check | `clojure -Srepro -T:build check` passed: lint 0/0, reflection clean, 39 tests / 3,702 assertions / 0 failures / 0 errors. The ten added unary-oracle tests pass, and the historical generated-map helper keeps the existing primitive-path assertions valid. |
+| Delegated transducer surface | `xfseq.core/map`, `filter`, `remove`, and `take` one-argument forms now return the corresponding `clojure.core` transducers. The oracle directly applies fresh transformed reducing functions, compares zero-arity init, ordinary steps, completion, reduced flags/unwrapped values, and invalid arity classes, and directly invokes map's multi-input reducing step for 2, 3, and 5 input values. |
+| Historical primitive path | Analyzer/generator source namespaces remain intact. A test/benchmark-only `historical-map-xform` preserves the old analyzer-shaped metadata for `gen/xf-seq` regression tests; the four `xfseq.core` #1 transducer paths do not call it. |
+| Scope audit | No `src-java` or benchmark file was edited. Unary collection arities remain the only public collection arities; multi-source map remains absent. |
+
+### Slice 1 run log
+
+| Date | Stage | Agent | Work | Result |
+|---|---|---|---|---|
+| 2026-09-01 | Parent preflight | `/root` | Captured the clean Phase 3 starting point and preserved the Phase 2 forked decision/GC receipts as the only pre-change performance baseline because the direct-unary harness is deferred to Slice 3. | HEAD `ab696eeab430659f2d9bcdc5bd6e5d18ac6148f8`; baseline check 29 / 2,906, lint 0/0, reflection clean. |
+| 2026-09-01 | Implementation Slice 1 | `/root/phase3_slice1` | Replaced analyzer-backed public map/filter/remove/take transducer factories with direct core delegates; added fresh unary oracle fixtures/tests; preserved the analyzer-backed generated map behavior in a test-only historical helper so existing generator coverage stays valid. | Initial focused oracle passed 9 / 789. Initial full check exposed two expected historical generator primitive-path assumptions; the helper/test redirection resolved them without restoring analyzer coupling to the #1 path. |
+| 2026-09-01 | Oracle coverage follow-up | `/root/phase3_slice1` | Replaced the explicit-init `transduce` snapshot with direct fresh transformed-reducing-function probes, covering zero-arity init, ordinary steps, completion, early `Reduced` behavior for `take`, and invalid xform/fixed-step arities; retained the explicit multi-input map proof. | Focused oracle passed 10 / 796; no production or benchmark scope change. |
+| 2026-09-01 | Slice 1 verification | `/root/phase3_slice1` | Reran the complete local check and reviewed the diff for Java/benchmark scope, unary arities, direct-core delegation, and preserved analyzer/generator sources. | Focused core + oracle passed 11 / 842; `clojure -Srepro -T:build check` passed with lint 0/0, reflection clean, 39 tests / 3,702 assertions / 0 failures / 0 errors. Awaiting parent inspection and checkpoint commit; no performance claim. |

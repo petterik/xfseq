@@ -5,6 +5,7 @@
   validate source shape before constructing a specialized candidate and make
   the non-reducing proof an explicit value produced by this namespace rather
   than caller metadata."
+  (:require [xfseq.analyze :as ana])
   (:import [clojure.lang IChunkedSeq ISeq]
            [xfseq XFSeqStep$ObjectStep XFSeqStepChunkedOnly
             XFSeqStepChunkedOnlyNoReduced XFSeqStepSimple
@@ -13,6 +14,33 @@
            [xfseq.buffer ObjectBuffer]))
 
 (set! *warn-on-reflection* true)
+
+;; The public #1 functions now delegate their transducer arities to core.  The
+;; generated primitive path is retained as historical research code, so its
+;; old analyzer-shaped map xform remains available only to tests that exercise
+;; that path.  It is intentionally not reachable from xfseq.core/map.
+(def ^:private historical-map-xf-factory
+  (ana/xf-factory*
+    (ana/map:type-analyzer
+      '(fn [rf f]
+         (fn
+           ([] (rf))
+           ([acc] (rf acc))
+           ([acc item]
+            (rf acc (f item))))))))
+
+(defn historical-map-xform
+  "Return the analyzer-backed map xform for the preserved generator path."
+  [f]
+  (with-meta
+    (fn [rf]
+      (historical-map-xf-factory rf f))
+    {:xfseq.core/no-reduced? true
+     :xfseq.core/return-hint
+     (-> (class f)
+         (ana/interfaces)
+         (ana/analyze-primitive-interfaces)
+         (get-in [1 :return] 'Object))}))
 
 (def object-candidate-registry
   "Stable repaired IDs.  Historical IDs are retained as values, not reused."

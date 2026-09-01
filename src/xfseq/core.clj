@@ -52,89 +52,31 @@
 ;; Transducers
 ;;
 
-(def map:xf-factory
-  (ana/xf-factory*
-    (ana/map:type-analyzer
-      '(fn [rf f]
-         (fn
-           ([] (rf))
-           ([acc] (rf acc))
-           ([acc item]
-            (rf acc (f item))))))))
+;; Keep these public operations tied to the corresponding Clojure transducer
+;; definitions.  The analyzer and generator remain available for the later
+;; primitive experiment, but must not be part of the #1 object path.
 
 (defn map
   ([f]
-   ;; TODO: Add no-reduced to more transducers
-   ^{::no-reduced? true
-     ::return-hint (-> (class f)
-                     (ana/interfaces)
-                     (ana/analyze-primitive-interfaces)
-                     (get-in [1 :return] 'Object))}
-   (fn
-     [rf]
-     (map:xf-factory rf f)))
+   (clojure.core/map f))
   ([f coll]
    (xf-seq (map f) coll)))
 
-(def filter:xf-factory
-  (ana/xf-factory
-    '(fn [rf pred]
-       (fn
-         ([] (rf))
-         ([acc] (rf acc))
-         ([acc item]
-          (if (pred item)
-            (rf acc item)
-            acc))))))
-
 (defn filter
   ([pred]
-   (fn
-     [rf]
-     (filter:xf-factory rf pred)))
+   (clojure.core/filter pred))
   ([pred coll]
    (xf-seq (filter pred) coll)))
 
-(def remove:xf-factory
-  (ana/xf-factory
-    '(fn [rf pred]
-       (fn
-         ([] (rf))
-         ([acc] (rf acc))
-         ([acc item]
-          (if-not (pred item)
-            (rf acc item)
-            acc))))))
-
 (defn remove
   ([pred]
-   (fn
-     [rf]
-     (remove:xf-factory rf pred)))
+   (clojure.core/remove pred))
   ([pred coll]
    (xf-seq (remove pred) coll)))
 
-(def take:xf-factory
-  (ana/xf-factory
-    '(fn [rf n]
-       (let [nv (volatile! n)]
-         (fn
-           ([] (rf))
-           ([result] (rf result))
-           ([result input]
-            (let [n @nv
-                  nn (vswap! nv dec)
-                  result (if (pos? n)
-                           (rf result input)
-                           result)]
-              (if (not (pos? nn))
-                (ensure-reduced result)
-                result))))))))
-
 (defn take
   ([n]
-   (fn [rf]
-     (take:xf-factory rf n)))
+   (clojure.core/take n))
   ([n coll]
    (xf-seq (take n) coll)))
 

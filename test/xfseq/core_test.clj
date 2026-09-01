@@ -1,7 +1,8 @@
 (ns xfseq.core-test
   (:require [clojure.test :refer [deftest is are testing]]
             [xfseq.core :as core]
-            [xfseq.gen :as gen]))
+            [xfseq.gen :as gen]
+            [xfseq.phase-2-candidates :as candidates]))
 
 (def size (long 1e3))
 
@@ -63,18 +64,18 @@
 
     (testing "Long primitives"
       (are [s]
-        (=
-          (sequence (map core/long-inc) s)
-          (core/xf-seq (core/map core/long-inc) s)
-          (gen/xf-seq (core/map core/long-inc) s))
+          (=
+            (sequence (map core/long-inc) s)
+            (core/xf-seq (core/map core/long-inc) s)
+            (gen/xf-seq (candidates/historical-map-xform core/long-inc) s))
         objs v-objs rang v-rang s-rang arr l-arr d-arr dc-objs))
 
     (testing "Double primitives"
       (are [s]
-        (=
-          (sequence (map core/double-inc) s)
-          (core/xf-seq (core/map core/double-inc) s)
-          (gen/xf-seq (core/map core/double-inc) s))
+          (=
+            (sequence (map core/double-inc) s)
+            (core/xf-seq (core/map core/double-inc) s)
+            (gen/xf-seq (candidates/historical-map-xform core/double-inc) s))
         objs v-objs rang v-rang s-rang arr l-arr d-arr dc-objs))
 
     ))
