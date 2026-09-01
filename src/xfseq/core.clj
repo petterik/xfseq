@@ -3,7 +3,8 @@
   (:require
     [xfseq.analyze :as ana]
     [xfseq.protocols :as p])
-  (:import [xfseq LongChunkedCons LongArrayChunk DoubleChunkedCons DoubleArrayChunk]))
+  (:import [xfseq DoubleArrayChunk DoubleChunkedCons LongArrayChunk LongChunkedCons
+            UnaryProfile]))
 
 (set! *warn-on-reflection* true)
 
@@ -48,6 +49,16 @@
   [xf coll]
   (clojure.lang.LazySeq. (xfseq.ObjectXFSeqInit. xf coll)))
 
+(defn- unary-xf-seq
+  [^UnaryProfile profile xf coll]
+  (clojure.lang.LazySeq.
+    (xfseq.ObjectXFSeqInit. xf coll profile)))
+
+(defn- unary-take-seq
+  [n xf coll]
+  (clojure.lang.LazySeq.
+    (xfseq.ObjectXFSeqInit. xf coll UnaryProfile/TAKE n)))
+
 ;;;;;;;;;;;;;;;;
 ;; Transducers
 ;;
@@ -60,25 +71,25 @@
   ([f]
    (clojure.core/map f))
   ([f coll]
-   (xf-seq (map f) coll)))
+   (unary-xf-seq UnaryProfile/MAP_LIKE (map f) coll)))
 
 (defn filter
   ([pred]
    (clojure.core/filter pred))
   ([pred coll]
-   (xf-seq (filter pred) coll)))
+   (unary-xf-seq UnaryProfile/FILTER_LIKE (filter pred) coll)))
 
 (defn remove
   ([pred]
    (clojure.core/remove pred))
   ([pred coll]
-   (xf-seq (remove pred) coll)))
+   (unary-xf-seq UnaryProfile/FILTER_LIKE (remove pred) coll)))
 
 (defn take
   ([n]
    (clojure.core/take n))
   ([n coll]
-   (xf-seq (take n) coll)))
+   (unary-take-seq n (take n) coll)))
 
 ;;;;;;;;;;;;;;;;
 ;; Consume API

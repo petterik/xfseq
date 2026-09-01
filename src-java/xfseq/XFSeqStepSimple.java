@@ -9,6 +9,7 @@ import clojure.lang.LazySeq;
 import clojure.lang.RT;
 import clojure.lang.Reduced;
 import xfseq.buffer.IXFSeqBuffer;
+import xfseq.buffer.ObjectBuffer;
 
 /**
  * The mixed object sequence step used by the object-only xf-seq path.
@@ -24,7 +25,9 @@ public class XFSeqStepSimple extends AFn {
     private IFn xf;
     private Object accumulator;
     private ISeq s;
+    private final UnaryProfile profile;
     private boolean completed;
+    private boolean failed;
     private static final int READY = 0;
     private static final int CHUNK_PENDING = 1;
     private static final int SINGLE_PENDING = 2;
@@ -39,22 +42,64 @@ public class XFSeqStepSimple extends AFn {
      * The buffer is the initial accumulator for an ordinary transducer.
      */
     public XFSeqStepSimple(IXFSeqBuffer buf, IFn xf, ISeq s) {
-        this(buf, xf, buf, s);
+        this(buf, xf, buf, s, UnaryProfile.GENERIC);
     }
 
     XFSeqStepSimple(IXFSeqBuffer buf, IFn xf, Object accumulator, ISeq s) {
+        this(buf, xf, accumulator, s, UnaryProfile.GENERIC);
+    }
+
+    XFSeqStepSimple(IXFSeqBuffer buf, IFn xf, Object accumulator, ISeq s,
+                    UnaryProfile profile) {
         this.buf = buf;
         this.xf = xf;
         this.accumulator = accumulator;
         this.s = s;
+        this.profile = profile;
     }
 
     @Override
     public Object invoke() {
-        if (completed) {
+        if (completed || failed) {
             return null;
         }
 
+        try {
+            return invokeStep();
+        } catch (Throwable error) {
+            if (profile != UnaryProfile.GENERIC) {
+                // Clojure's direct unary lazy nodes become an empty tail after
+                // a failed force.  Generic xf-seq intentionally retains its
+                // Phase 2 retry behavior.
+                boolean takePostStepReplay = profile == UnaryProfile.TAKE
+                        && xf == null
+                        && s == null
+                        && buf == null;
+                boolean takePostStepFailure = profile == UnaryProfile.TAKE
+                        && buf != null
+                        && !buf.isEmpty();
+                if (!takePostStepReplay) {
+                    failed = !takePostStepFailure;
+                }
+                xf = null;
+                s = null;
+                buf = null;
+                accumulator = null;
+                pending = READY;
+                pendingChunkSource = null;
+                pendingChunk = null;
+                pendingChunkIndex = 0;
+                pendingSingle = null;
+            }
+            throw clojure.lang.Util.sneakyThrow(error);
+        }
+    }
+
+    boolean failed() {
+        return failed;
+    }
+
+    private Object invokeStep() {
         IXFSeqBuffer buf = this.buf;
         IFn xf = this.xf;
         Object acc = this.accumulator;
@@ -79,7 +124,9 @@ public class XFSeqStepSimple extends AFn {
                 return finish();
             }
 
-            if (pending != CHUNK_PENDING && c instanceof IChunkedSeq) {
+            if (profile != UnaryProfile.TAKE
+                    && pending != CHUNK_PENDING
+                    && c instanceof IChunkedSeq) {
                 pendingChunkSource = (IChunkedSeq) c;
                 pendingChunk = pendingChunkSource.chunkedFirst();
                 pendingChunkIndex = 0;
@@ -123,12 +170,31 @@ public class XFSeqStepSimple extends AFn {
                 this.accumulator = acc;
                 this.s = nextSource;
                 if (!buf.isEmpty()) {
-                    return buf.toSeq(new LazySeq(this));
+                    return profile == UnaryProfile.GENERIC
+                            ? buf.toSeq(new LazySeq(this))
+                            : ((ObjectBuffer) buf).toChunkSeq(new LazySeq(this));
                 }
                 c = nextSource == null ? null : nextSource.seq();
             } else {
                 ISeq item = c;
-                Object next = xf.invoke(acc, item.first());
+                Object next;
+                ISeq nextSource = null;
+                Object value = item.first();
+                if (profile == UnaryProfile.FILTER_LIKE) {
+                    // Direct filter/remove obtain rest before invoking the
+                    // predicate.  This is observable for traced or throwing
+                    // dechunked sources.
+                    nextSource = item.more();
+                    next = xf.invoke(acc, value);
+                } else {
+                    // Direct map and take invoke their step before obtaining
+                    // the source rest.  Take still needs that rest after its
+                    // terminal step, so obtain it before checking Reduced.
+                    next = xf.invoke(acc, value);
+                    if (profile != UnaryProfile.GENERIC) {
+                        nextSource = item.more();
+                    }
+                }
                 if (RT.isReduced(next)) {
                     this.accumulator = ((Reduced) next).deref();
                     // See the chunked path above: a completion retry must
@@ -139,14 +205,17 @@ public class XFSeqStepSimple extends AFn {
                 acc = next;
                 this.accumulator = acc;
 
-                // Advancing the source is part of successfully processing the
-                // item. Keep it in the state before returning a continuation
-                // so a later realization resumes at the following item.
-                pendingSingle = item;
-                pending = SINGLE_PENDING;
-                ISeq nextSource = item.more();
-                pendingSingle = null;
-                pending = READY;
+                if (profile == UnaryProfile.GENERIC) {
+                    // Advancing the source is part of successfully processing
+                    // the item. Keep it in the state before returning a
+                    // continuation so a later generic realization resumes at
+                    // the following item even if `more` itself throws.
+                    pendingSingle = item;
+                    pending = SINGLE_PENDING;
+                    nextSource = item.more();
+                    pendingSingle = null;
+                    pending = READY;
+                }
                 this.s = nextSource;
                 if (!buf.isEmpty()) {
                     return buf.toSeq(new LazySeq(this));

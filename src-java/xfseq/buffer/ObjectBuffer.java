@@ -128,6 +128,25 @@ public class ObjectBuffer extends ObjectBufferIFn implements IXFSeqBuffer {
         return seq;
     }
 
+    /**
+     * Flush the current output as one chunk, even when it contains fewer than
+     * five values.  Unary map/filter compatibility uses this shape for a
+     * chunked input; generic xf-seq keeps the historical {@link #toSeq} policy.
+     */
+    public ISeq toChunkSeq(ISeq seq) {
+        if (idx == 0) {
+            return seq;
+        }
+        if (idx <= 32) {
+            seq = new ChunkedCons(new ArrayChunk(arr, 0, idx), seq);
+            resetAfterExposure();
+            return seq;
+        }
+        seq = chunkLargeResult(seq);
+        resetAfterExposure();
+        return seq;
+    }
+
     private void resetAfterSmallResult() {
         if (capacity > 32) {
             capacity = 32;

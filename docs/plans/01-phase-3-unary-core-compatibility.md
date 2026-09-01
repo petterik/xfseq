@@ -1202,3 +1202,44 @@ the Java engine and benchmark sources are unchanged.
 | 2026-09-01 | Oracle coverage follow-up | `/root/phase3_slice1` | Replaced the explicit-init `transduce` snapshot with direct fresh transformed-reducing-function probes, covering zero-arity init, ordinary steps, completion, early `Reduced` behavior for `take`, and invalid xform/fixed-step arities; retained the explicit multi-input map proof. | Focused oracle passed 10 / 796; no production or benchmark scope change. |
 | 2026-09-01 | Slice 1 verification | `/root/phase3_slice1` | Reran the complete local check and reviewed the diff for Java/benchmark scope, unary arities, direct-core delegation, and preserved analyzer/generator sources. | Focused core + oracle passed 11 / 842; `clojure -Srepro -T:build check` passed with lint 0/0, reflection clean, 39 tests / 3,702 assertions / 0 failures / 0 errors. Awaiting parent inspection and checkpoint commit; no performance claim. |
 | 2026-09-01 | Slice 1 parent checkpoint | `/root` | Inspected the complete diff, returned one inaccurate init-coverage claim for correction, then independently reran the focused pair, full check, and diff hygiene. | Accepted at `03af0e7`; focused 11 / 842 and full 39 / 3,702 passed with lint 0/0, reflection clean, and `git diff --check` clean. |
+
+## Slice 2 implementation evidence
+
+Slice 2 keeps one ordinary `LazySeq`, initializer, mixed state machine,
+accumulator/completion path, and `ObjectBuffer`. The public unary collection
+wrappers select one closed `UnaryProfile` (`MAP_LIKE`, `FILTER_LIKE`, or
+`TAKE`) at construction. The profile supplies only the four facilities named
+by this plan: take's deferred count guard, operation-specific source/batch
+order, explicit chunk-versus-Cons flushing, and one-shot failure termination.
+No source classifier, public policy flag, copied function loop, extra buffer,
+or reduction protocol was added. Generic `xf-seq` retains its Phase 2
+behavior and constructor shape.
+
+The focused transducer oracle was also strengthened during this checkpoint.
+Each comparison creates a fresh direct-core or `xfseq.core` transducer and
+directly invokes its transformed reducing function's zero-arity initializer,
+ordinary steps, completion, and invalid arity behavior. A separate fresh
+`take` probe makes the sink return `Reduced` on its second step and compares
+the unwrapped completion result and event trace. The existing fresh map
+multi-input step proof remains in place; no multi-collection public arity was
+added.
+
+| Check | Evidence |
+|---|---|
+| Focused direct/candidate oracle | `clojure -Srepro -M:test -n xfseq.unary-oracle-test` passed: 24 tests / 1,699 assertions / 0 failures / 0 errors. It compares direct and candidate values over fresh nil/empty/list/vector/subvector/range/array/iterable/iterator/lazy sources, chunk/node shape including sparse output, downstream mapper demand, dechunked source order, final-take `rest` failure and one-shot behavior, remove predicate failure, invalid mapper/predicate arity, non-seqable input, initial/later failures and one-shot tails, custom dechunked `first`/`next` failures, initial/later custom chunkedFirst/chunk nth/chunkedMore failures, ordinary all-four-function sequence surface/cache/metadata/printing/iteration/reduction/early-reduced behavior, a fresh one-shot iterator, and concurrent forcing. Every lazy exception snapshot forces the same node four times; invalid `take` counts repeat their exact class four times without source access, while positive `take` source/first failures become empty after the first exception. |
+| Transducer delegation oracle | The same focused run directly compares fresh transformed reducing functions for zero-arity init, ordinary steps, completion, `Reduced` propagation for `take`, invalid xform arity, invalid fixed-step arity/classes, and map's 2/3/5-input reducing steps. |
+| Phase 2 regression suites | `clojure -Srepro -M:test -n xfseq.object-engine-test -n xfseq.object-candidate-test` passed: 28 tests / 2,860 assertions / 0 failures / 0 errors. Generic engine retry/completion/accumulator behavior and all retained Phase 2 candidate identities remain covered. |
+| Full local check | `clojure -Srepro -T:build check` passed: lint 0/0, reflection clean, 53 tests / 4,605 assertions / 0 failures / 0 errors. |
+| Scope and hygiene | Production changes are limited to `ObjectXFSeqInit.java`, `XFSeqStepSimple.java`, `ObjectBuffer.java`, `UnaryProfile.java`, and unary collection call sites in `src/xfseq/core.clj`; tests are confined to `unary_oracle_test.clj`. No Java benchmark or benchmark source changed. `git diff --check` passed. |
+| Complexity audit | The diff adds one profile enum, profile selection at the public wrapper boundary, one failure bit at each existing lazy realization boundary, and one explicit `ObjectBuffer` chunk flush. Existing generic pending states, one buffer, and one completion path remain shared. Failed compatibility initializers/steps clear source, xform, buffer, accumulator, and pending references; reflection tests verify this and direct one-shot closures clear their captured source state. The invalid-count guard deliberately retains initializer callable state for repeated class-identical failures; a successful take step whose final `rest` fails clears source/xform state while preserving direct core's first exception followed by repeated `NullPointerException`. The four declared facilities sufficed; no replanning trigger was reached. |
+| Performance baseline | No Phase 3 performance claim is made. The parent preflight baseline and preserved Phase 2 forked decision/GC receipts recorded above remain the only pre-Slice-3 performance evidence. |
+
+### Slice 2 run log
+
+| Date | Stage | Agent | Work | Result |
+|---|---|---|---|---|
+| 2026-09-01 | Implementation Slice 2 | `/root/phase3_slice1` | Added the closed unary compatibility profile, selected it from the four unary collection wrappers, repaired direct source/batch order and chunk/Cons flush shape, added the deferred `take` guard, and made only compatibility-profile lazy nodes one-shot after failure. Kept generic `xf-seq` and Phase 2 candidates on the existing path. | Candidate implementation passed the direct oracle and Phase 2 engine/candidate suites; no fifth compatibility mechanism was needed. |
+| 2026-09-01 | Transducer oracle follow-up | `/root/phase3_slice1` | Added a fresh transformed-RF `take` probe with early `Reduced` and completion, expanded invalid step-arity coverage to include map's invalid mapper arity while retaining the multi-input proof, and kept all transducer comparisons direct against core. | Focused oracle passed 24 / 1,722 with no failures; no public multi-source collection arity was introduced. |
+| 2026-09-01 | Semantic coverage follow-up | `/root/phase3_slice1` | Added fresh direct-vs-candidate cases for final-take rest failure, remove predicate failure, invalid mapper/predicate arity, non-seqable input, custom dechunked failures, all requested initial/later custom chunked failures, all-four-function surface/reduction/early-reduced behavior, and engine reference release. | Focused oracle passed 24 / 1,722; no additional production mechanism beyond the existing profile failure termination was needed. |
+| 2026-09-01 | Slice 2 verification | `/root/phase3_slice1` | Ran the focused unary oracle, Phase 2 object engine/candidate suites, full build check, and diff hygiene; reviewed production state/branch/reference additions against the four-facility boundary. | Focused 24 / 1,722; Phase 2 pair 28 / 2,860; full 53 / 4,628; lint 0/0; reflection clean; `git diff --check` clean. Ready for parent inspection; no commit made. |
+| 2026-09-01 | Take replay correction | `/root/phase3_slice1` | Changed every lazy exception snapshot to four same-node forces; moved invalid-count validation outside compatibility failure termination so count/type errors retain callable state; kept successful take `rest` failures retryable only for the deterministic repeated-NPE shape while clearing source/xform references; added positive take source-seq/first failure coverage. | Focused 24 / 1,699; Phase 2 pair 28 / 2,860; full 53 / 4,605; lint 0/0; reflection clean; `git diff --check` clean. No fifth compatibility mechanism was needed; uncommitted for parent review. |
