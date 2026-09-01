@@ -737,13 +737,15 @@ results/phase-2/bench/smoke-<commit>.json
 results/phase-2/bench/screen-<commit>.json
 results/phase-2/bench/decision-<commit>.json
 results/phase-2/bench/decision-gc-<commit>.json
-results/phase-2/jit/<representative-case>.log
 ```
 
 The plan records commands, exit codes, test summaries, result hashes, selected
 rows, rejected rows, candidate IDs, slice SHAs, and agent runs. Result writers
 must refuse to overwrite an existing raw path. Machine-local temporary files
 remain under `/private/tmp` and are not cited as durable completion evidence.
+Full HotSpot compilation/inlining logs are generated under
+`results/phase-2/jit/` for local diagnosis and are ignored by Git; the plan
+retains their commands, original hashes, and decision-relevant findings.
 
 ## Exit criteria
 
@@ -1226,7 +1228,7 @@ source-specialized or no-reduced Cartesian cells can enter a durable result.
 | Manifest/result validators | `clojure -Srepro -M:bench -m xfseq.bench.runner validate-manifest ...` passed for screen, fresh decision, and fresh decision-GC; each reports its expected exact identity count and manifest SHA. Duplicate identities and count mismatches are rejected before durable reservation. Registry validation tests pass 4 tests / 32 assertions. |
 | Parent GC spot checks | After rebuilding the isolated jar, `/root` independently reran three-fork, five-iteration `-prof gc` subsets for vector/64 mixed-versus-chunked reduced-aware and buffer count 33 current-versus-all-chunk. Vector/64 repeated at 6.831M versus 8.025M ops/s with both 1,104 B/op; [`parent vector/64 JSON`](../../results/phase-2/bench/parent-check-vector64-gc-dcd35b41-20260901a.json), SHA-256 `8f911cc4fcd857c2f39fa5900b97a9c3186dbbd19fb684036d3f2679b8031745`. Count 33 repeated at 3.823M/2,480 B/op versus 3.595M/2,600 B/op; [`parent buffer JSON`](../../results/phase-2/bench/parent-check-buffer33-gc-dcd35b41-20260901a.json), SHA-256 `6ae402c7f11e1fd15e27476ef121efdf234f8369ca63f5ba5c508286700daf10`. Both receipts pass strict `:decision-gc` result validation. |
 | Fresh smoke | `clojure -Srepro -T:build bench-smoke '{:run-id "slice4-smoke-20260901a"}'` exit 0 after the final build; 19 rows / 10 identities / both candidate IDs. Result SHA-256 `fefdcca8897b7a946929f89969f16cc30e4bfedd1943d732432e00cc29a6ced9`; environment SHA-256 `b77446b6189ff353d5c1f936f1c2973a64a0ffc4dff039922a548f3a952dd96e`. `validate-smoke` passed without rewriting the receipt. |
-| JIT/inlining | `clojure -Srepro -T:build bench-jit '{:run-id "slice4-jit-20260901b"}'` exit 0; five one-fork direct-on representative logs are preserved under [`results/phase-2/jit/`](../../results/phase-2/jit/): list/8 `16f705348dda6cf283ee761ae9a4c66ab8b8b587c7bd076262ef2a9727fbe09e`; list/10,000 `c6a95a91f4004bd6ee16605595ee10e3e5533f72af799bb6ba0117c9d128e4be`; vector/64 `d0f954b9bac5ad70d820424bc5a6a224a524a8a6e02118acd84e2a5643e461e5`; vector/33 `d610ddf940e7cd4d4e07ee11999b8481119f42dfd5f5b7dc33930e896410f753`; vector/1,000 `f7e9449d038d6169d2418c6a19a5697556fc6eb36afecc301e23812ef5c728b8`. |
+| JIT/inlining | `clojure -Srepro -T:build bench-jit '{:run-id "slice4-jit-20260901b"}'` exit 0; five one-fork direct-on representative logs were generated locally under the now-ignored `results/phase-2/jit/`: list/8 `16f705348dda6cf283ee761ae9a4c66ab8b8b587c7bd076262ef2a9727fbe09e`; list/10,000 `c6a95a91f4004bd6ee16605595ee10e3e5533f72af799bb6ba0117c9d128e4be`; vector/64 `d0f954b9bac5ad70d820424bc5a6a224a524a8a6e02118acd84e2a5643e461e5`; vector/33 `d610ddf940e7cd4d4e07ee11999b8481119f42dfd5f5b7dc33930e896410f753`; vector/1,000 `f7e9449d038d6169d2418c6a19a5697556fc6eb36afecc301e23812ef5c728b8`. |
 | JIT finding | Across the fresh selected and reversal logs, `Phase2JavaBenchmark` loop/setup wrappers and the small candidate `invoke` boundary inline hot, while the shared `xfseq.XFSeqObjectStep::invoke` body is 594 bytes and reports `failed to inline: hot method too big` (fresh list/8 line 50616, list/10,000 line 51668, vector/64 line 51849, vector/33 line 51643, and vector/1,000 line 52506). This supports retaining one shared mixed product path; source-shape wrappers do not provide a structural whole-tail proof. |
 | Linkage/lint/reflection/hygiene | Every timing task reran `check`; each reported 29 tests / 2,906 assertions / 0 failures / 0 errors, lint 0/0, and clean reflection. `bench-linkage` completed during each build; `git diff --check` passed after the final edits. |
 

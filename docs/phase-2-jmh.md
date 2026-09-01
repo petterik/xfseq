@@ -76,10 +76,11 @@ benchmark-only and is never silently substituted into production.
 
 The `bench-jit` task reruns five representative direct-on Java cells with one
 fork and captures raw `PrintCompilation`/`PrintInlining` output under
-`results/phase-2/jit/`. It covers the small list identity apparent reversal,
-the selected list traversal, the vector chunked boundary reversal, the added
-vector/33 filter-first reversal, and the vector map no-reduced reversal. JIT
-output is evidence for the structural decision, not a replacement for forked
+`results/phase-2/jit/`. These machine-generated logs are ignored by Git. The
+task covers the small list identity apparent reversal, the selected list
+traversal, the vector chunked boundary reversal, the added vector/33
+filter-first reversal, and the vector map no-reduced reversal. JIT output is
+diagnostic evidence for the structural decision, not a replacement for forked
 timing or GC data.
 
 `xfseq.bench.calls` is compiled AOT with direct linking enabled.  Java calls

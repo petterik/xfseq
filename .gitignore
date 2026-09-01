@@ -16,3 +16,6 @@ pom.xml.asc
 
 /.cpcache
 /.clj-kondo/.cache
+
+# Generated HotSpot compilation/inlining diagnostics
+/results/**/jit/*.log
