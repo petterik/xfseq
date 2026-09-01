@@ -1415,6 +1415,11 @@ matrix.
 
 ### Slice 4 targeted diagnosis, decisions, and final gates
 
+Slice 4 was accepted by the parent and checkpointed at `0652f05`. It records
+the complete focused decision, the user-approved targeted decision and GC
+lanes, representative JIT/JFR diagnostics, and the resulting per-function
+rejections without changing production or benchmark implementation code.
+
 The targeted GC lane was run only after the 12-cell/74-identity manifest was
 validated. The four compiler/inlining and four JFR probes were representative
 diagnostics, not a replacement for the three-fork decision receipts. They use
@@ -1444,3 +1449,4 @@ raw evidence and are not treated as a causal allocation proof.
 | 2026-09-01 22:52 CEST | Final gates | `/root/phase3_slice1` | Refreshed the stale focused registry identity assertion, reran registry tests, full semantic check, linkage, and a unique Phase 2 preservation smoke with JMH lock override; validated the Phase 2 receipt. | Registry 9/64, full check 53/4,605, lint 0/0, reflection clean, linkage no Var lookups, Phase 2 19 rows/10 identities; all passed. |
 | 2026-09-01 22:52 CEST | Slice 4 checkpoint | `/root/phase3_slice1` | Recorded per-function adoption decisions, no-reduced/result-type trigger outcomes, skipped-cell confidence limits, raw evidence hashes, and preserved baseline/receipt paths. | `map`, `filter`, `remove`, and `take` all reject the current public compatible replacement under the declared no-regression gate. Slice 5/6 were not started; no commit made. |
 | 2026-09-01 | Slice 4 parent checkpoint | `/root` | Inspected the manifests, receipts, environment metadata, profile artifacts, registry fixture, decision arithmetic, trigger conclusions, and interruption history; corrected one ambiguous sentence so the first focused decision cancellation is attributed only to the agent/parent. Independently reran full `check`, registry tests, linkage, exact validation of the 309-row focused decision, 72-row targeted decision, and 74-row targeted GC receipt, hash/row checks, and diff hygiene. | Accepted: full check 53 / 4,605, lint 0/0, reflection clean; registry 9/64; linkage passed; all receipt hashes and row counts matched; recomputed direct regressions matched the recorded 14/15, 6/10, 6/10, 10/13 focused counts and 7/7 targeted map/take counts. Ready for the Slice 4 checkpoint commit; Slice 5/6 remain skipped because their triggers were not met. |
+| 2026-09-01 | Slice 4 checkpoint SHA record | `/root` | Recorded the accepted Slice 4 checkpoint before starting any later slice. | Checkpoint `0652f05`; Slice 5 and Slice 6 remain skipped, so the next executable work is Slice 7 cleanup and final handoff only. |
