@@ -18,8 +18,11 @@
   {:extra-paths ["dev" "test"]
    :extra-deps {criterium/criterium {:mvn/version "0.4.6"}}}
   :bench
-  {:extra-paths ["test"]
-   :extra-deps {criterium/criterium {:mvn/version "0.4.6"}}
+  {:extra-paths ["bench/clj" "test"]
+   :extra-deps {criterium/criterium {:mvn/version "0.4.6"}
+                org.openjdk.jmh/jmh-core {:mvn/version "1.37"}
+                org.openjdk.jmh/jmh-generator-annprocess {:mvn/version "1.37"}
+                org.clojure/data.json {:mvn/version "2.5.1"}}
    :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}
   :dev
   {:extra-paths ["dev" "test"]}}}

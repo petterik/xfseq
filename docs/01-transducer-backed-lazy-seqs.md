@@ -500,12 +500,27 @@ for every later refactor.
 - Route unary `map`, `filter`, `remove`, and `take` through the object engine.
 - Add function-specific realization tests against direct `clojure.core`
   implementations.
+- Add direct-core full-reduction throughput and allocation rows for retained and
+  unretained result heads. Compare ordinary core lazy results, `xf-seq`,
+  `sequence`, `eduction`, and `transduce` before attributing a reduction gap to
+  the lazy-seq engine.
+- If those rows show a material gap, investigate a custom memoizing `ISeq` type
+  that also implements `IReduceInit`. Its reduction cursor may release consumed
+  forward chunks when the caller does not retain the head, but a retained head
+  must preserve ordinary cached realization. Reject weak/soft-reference caches
+  and any behavior whose replay, side effects, exceptions, or retention depend
+  on garbage collection.
+- Test reduce-then-seq, seq-then-reduce, repeated reduction, early reduction,
+  one-shot sources, completion output, exceptions, and chunked/dechunked call
+  counts before considering that result type. Keep an explicit reducible or
+  destructive fusion API in Phase 6.
 - Preserve `take` behavior for non-positive counts.
 - Verify chunked and dechunked call counts.
 - Verify all standard seq operations on empty and non-empty results.
 
 Exit criterion: no known value, exception, protocol, or realization-timing
-difference for the supported arities.
+difference for the supported arities, and any retained direct-reduction path
+also matches ordinary lazy-seq memoization and head-retention behavior.
 
 ### Phase 4: multi-source map
 

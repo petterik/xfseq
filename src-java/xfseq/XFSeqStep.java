@@ -108,31 +108,41 @@ public abstract class XFSeqStep extends AFn {
 
     public static class ObjectStep extends XFSeqStep {
 
-        private final IFn xf;
+        /*
+         * Keep ObjectStep's historical superclass and constructor identity,
+         * while sharing the repaired object state/completion contract with
+         * the other retained object candidates.  LongStep and DoubleStep
+         * intentionally continue to use the original XFSeqStep machinery.
+         */
+        private final XFSeqObjectStep delegate;
 
         public ObjectStep(IFn xf, ISeq s, IXFSeqBuffer buf) {
-            super(s, buf);
-            this.xf = xf;
+            // The repaired object delegate owns this state.  Do not also
+            // retain the source/buffer in XFSeqStep's legacy fields after a
+            // candidate has completed.
+            super(null, null);
+            this.delegate = new XFSeqObjectStep(
+                    buf, xf, s, XFSeqObjectStep.Shape.MIXED, true);
+        }
+
+        @Override
+        public Object invoke() {
+            return delegate.invoke();
         }
 
         @Override
         void invokeXF() {
-            xf.invoke(buf);
+            throw new UnsupportedOperationException();
         }
 
         @Override
         boolean invokeXF(ISeq s) {
-            return buf == xf.invoke(buf, s.first());
+            throw new UnsupportedOperationException();
         }
 
         @Override
         boolean invokeXFChunk(IChunk ch) {
-            for (int i = 0; i < ch.count(); i++) {
-                if (buf != xf.invoke(buf, ch.nth(i))) {
-                    return false;
-                }
-            }
-            return true;
+            throw new UnsupportedOperationException();
         }
     }
 }

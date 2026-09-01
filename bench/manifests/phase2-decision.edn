@@ -1,0 +1,187 @@
+{:schema-version 1
+ :profile :decision
+ :description "Fresh Phase 2 decision subset; cells are selected from the screen for selection-critical and apparent-reversal follow-up."
+ :cells
+ [{:id "public-list-1-identity-construct"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "construct"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["list"]
+            "size" ["1"]
+            "workload" ["identity"]}}
+  {:id "public-subvector-1000-map-traverse"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "traverse"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["subvector"]
+            "size" ["1000"]
+            "workload" ["map"]}}
+  {:id "public-range-1000-filter-vector"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "vector"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["range"]
+            "size" ["1000"]
+            "workload" ["filter"]}}
+  {:id "public-set-1000-filter-traverse"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "traverse"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["set"]
+            "size" ["1000"]
+            "workload" ["filter"]}}
+  {:id "public-list-8-map-first"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "first"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["list"]
+            "size" ["8"]
+            "workload" ["map"]}}
+  {:id "public-list-1000-filter-prefix8"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["filter"]}}
+  {:id "public-list-10000-map-filter-traverse"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "traverse"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["list"]
+            "size" ["10000"]
+            "workload" ["map-filter"]}}
+  {:id "public-vector-64-identity-prefix8"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["vector"]
+            "size" ["64"]
+            "workload" ["identity"]}}
+  {:id "public-vector-1000-five-map-traverse"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "traverse"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["five-map"]}}
+  {:id "public-vector-1000000-take-reduce"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "reduce"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["vector"]
+            "size" ["1000000"]
+            "workload" ["take"]}}
+  {:id "public-array-1000-map-traverse"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "traverse"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["array"]
+            "size" ["1000"]
+            "workload" ["map"]}}
+  {:id "public-iterable-1000-map-filter-reduce"
+   :class "xfseq.bench.Phase2PublicBenchmark"
+   :method "reduce"
+   :params {"implementation" ["xfseq" "sequence" "eduction" "transduce"]
+            "sourceKind" ["iterable"]
+            "size" ["1000"]
+            "workload" ["map-filter"]}}
+
+  {:id "java-list-8-identity-first"
+   :class "xfseq.bench.Phase2JavaBenchmark"
+   :method "loopFirst"
+   :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                           "java-mixed-object-reduced-aware-v2"
+                           "java-mixed-object-nonreducing-v2"
+                           "java-dechunked-object-reduced-aware-v2"
+                           "java-dechunked-object-nonreducing-v2"]
+            "sourceKind" ["list"]
+            "size" ["8"]
+            "workload" ["identity"]}}
+  {:id "java-list-1000-map-prefix8"
+   :class "xfseq.bench.Phase2JavaBenchmark"
+   :method "loopPrefix8"
+   :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                           "java-mixed-object-reduced-aware-v2"
+                           "java-mixed-object-nonreducing-v2"
+                           "java-dechunked-object-reduced-aware-v2"
+                           "java-dechunked-object-nonreducing-v2"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["map"]}}
+  {:id "java-list-10000-filter-traverse"
+   :class "xfseq.bench.Phase2JavaBenchmark"
+   :method "loopTraverse"
+   :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                           "java-mixed-object-reduced-aware-v2"
+                           "java-mixed-object-nonreducing-v2"
+                           "java-dechunked-object-reduced-aware-v2"
+                           "java-dechunked-object-nonreducing-v2"]
+            "sourceKind" ["list"]
+            "size" ["10000"]
+            "workload" ["filter"]}}
+  {:id "java-vector-64-identity-prefix8"
+   :class "xfseq.bench.Phase2JavaBenchmark"
+   :method "loopPrefix8"
+   :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                           "java-mixed-object-reduced-aware-v2"
+                           "java-mixed-object-nonreducing-v2"
+                           "java-chunked-object-reduced-aware-v2"
+                           "java-chunked-object-nonreducing-v2"]
+            "sourceKind" ["vector"]
+            "size" ["64"]
+            "workload" ["identity"]}}
+  {:id "java-vector-33-filter-first"
+   :class "xfseq.bench.Phase2JavaBenchmark"
+   :method "loopFirst"
+   :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                           "java-mixed-object-reduced-aware-v2"
+                           "java-mixed-object-nonreducing-v2"
+                           "java-chunked-object-reduced-aware-v2"
+                           "java-chunked-object-nonreducing-v2"]
+            "sourceKind" ["vector"]
+            "size" ["33"]
+            "workload" ["filter"]}}
+  {:id "java-vector-1000-map-traverse"
+   :class "xfseq.bench.Phase2JavaBenchmark"
+   :method "loopTraverse"
+   :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                           "java-mixed-object-reduced-aware-v2"
+                           "java-mixed-object-nonreducing-v2"
+                           "java-chunked-object-reduced-aware-v2"
+                           "java-chunked-object-nonreducing-v2"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["map"]}}
+  {:id "java-vector-1000000-filter-traverse"
+   :class "xfseq.bench.Phase2JavaBenchmark"
+   :method "loopTraverse"
+   :params {"candidateId" ["java-polymorphic-object-reduced-aware-v2"
+                           "java-mixed-object-reduced-aware-v2"
+                           "java-mixed-object-nonreducing-v2"
+                           "java-chunked-object-reduced-aware-v2"
+                           "java-chunked-object-nonreducing-v2"]
+            "sourceKind" ["vector"]
+            "size" ["1000000"]
+            "workload" ["filter"]}}
+
+  {:id "buffer-policy-1"
+   :class "xfseq.bench.Phase2BufferBenchmark"
+   :method "appendAndFlush"
+   :params {"count" ["1"] "policy" ["current" "all-chunk"]}}
+  {:id "buffer-policy-4"
+   :class "xfseq.bench.Phase2BufferBenchmark"
+   :method "appendAndFlush"
+   :params {"count" ["4"] "policy" ["current" "all-chunk"]}}
+  {:id "buffer-policy-32"
+   :class "xfseq.bench.Phase2BufferBenchmark"
+   :method "appendAndFlush"
+   :params {"count" ["32"] "policy" ["current" "all-chunk"]}}
+  {:id "buffer-policy-33"
+   :class "xfseq.bench.Phase2BufferBenchmark"
+   :method "appendAndFlush"
+   :params {"count" ["33"] "policy" ["current" "all-chunk"]}}
+  {:id "buffer-policy-1000"
+   :class "xfseq.bench.Phase2BufferBenchmark"
+   :method "appendAndFlush"
+   :params {"count" ["1000"] "policy" ["current" "all-chunk"]}}]}
