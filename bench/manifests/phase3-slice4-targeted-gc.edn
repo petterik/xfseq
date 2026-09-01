@@ -1,0 +1,135 @@
+{:schema-version 1
+ :phase :phase3
+ :profile :decision
+ :description "User-approved targeted Slice 4 GC diagnosis: exact reduction pairs plus applicable reduced-aware/no-reduced Java rows for map/filter/remove on dechunked and chunked sources."
+ :cells
+ [{:id "slice4-targeted-gc-map-list-unretained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"
+                                "xfseq-generic" "sequence" "eduction"
+                                "transduce"
+                                "java-dechunked-object-reduced-aware-v2"
+                                "java-dechunked-object-nonreducing-v2"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "slice4-targeted-gc-map-list-retained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"
+                                "xfseq-generic" "sequence" "eduction"
+                                "java-dechunked-object-reduced-aware-v2"
+                                "java-dechunked-object-nonreducing-v2"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "slice4-targeted-gc-map-vector-unretained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"
+                                "xfseq-generic" "sequence" "eduction"
+                                "transduce"
+                                "java-chunked-object-reduced-aware-v2"
+                                "java-chunked-object-nonreducing-v2"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "slice4-targeted-gc-map-vector-retained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"
+                                "xfseq-generic" "sequence" "eduction"
+                                "java-chunked-object-reduced-aware-v2"
+                                "java-chunked-object-nonreducing-v2"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "slice4-targeted-gc-take-list-unretained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["take"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["take"]
+            "takeCount" ["32"]}}
+  {:id "slice4-targeted-gc-take-list-retained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["take"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["take"]
+            "takeCount" ["32"]}}
+  {:id "slice4-targeted-gc-take-vector-unretained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["take"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["take"]
+            "takeCount" ["32"]}}
+  {:id "slice4-targeted-gc-take-vector-retained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["take"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["take"]
+            "takeCount" ["32"]}}
+  {:id "slice4-targeted-gc-filter-remove-list-unretained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct" "transduce"
+                                "java-dechunked-object-reduced-aware-v2"
+                                "java-dechunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
+            "takeCount" ["0"]}}
+  {:id "slice4-targeted-gc-filter-remove-list-retained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"
+                                "java-dechunked-object-reduced-aware-v2"
+                                "java-dechunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
+            "takeCount" ["0"]}}
+  {:id "slice4-targeted-gc-filter-remove-vector-unretained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct" "transduce"
+                                "java-chunked-object-reduced-aware-v2"
+                                "java-chunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
+            "takeCount" ["0"]}}
+  {:id "slice4-targeted-gc-filter-remove-vector-retained"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"
+                                "java-chunked-object-reduced-aware-v2"
+                                "java-chunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
+            "takeCount" ["0"]}}]}

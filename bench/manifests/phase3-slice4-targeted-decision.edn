@@ -1,0 +1,41 @@
+{:schema-version 1
+ :phase :phase3
+ :profile :decision
+ :description "User-approved targeted Slice 4 decision subset: direct rejection and closest/best rows for every operation, chunked/dechunked partial/full coverage, causal controls, and retained/unretained pairs."
+ :cells
+ [{:id "slice4-targeted-rejection-chunked-prefix"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map" "filter" "remove" "take"]
+            "sourceKind" ["vector"]
+            "size" ["32"]}}
+  {:id "slice4-targeted-best-dechunked-full"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map" "filter" "remove" "take"]
+            "sourceKind" ["list"]
+            "size" ["1000"]}}
+  {:id "slice4-targeted-controls-chunked-full"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                                "sequence" "eduction" "transduce"]
+            "operation" ["map" "filter" "remove" "take"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]}}
+  {:id "slice4-targeted-reductions-unretained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map" "filter" "remove" "take"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}
+  {:id "slice4-targeted-reductions-retained"
+   :class "xfseq.bench.Phase3UnaryBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map" "filter" "remove" "take"]
+            "sourceKind" ["list" "vector"]
+            "size" ["1000"]}}]}

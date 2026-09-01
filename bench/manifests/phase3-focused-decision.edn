@@ -3,7 +3,19 @@
  :profile :decision
  :description "Focused Phase 3 decision controls selected from the broader Slice 4 diagnosis vocabulary."
  :cells
- [{:id "focused-decision-map-workloads"
+ [{:id "focused-decision-map-source-families"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
+                              "sequence" "eduction" "transduce"]
+            "operation" ["map"]
+            "sourceKind" ["array" "iterable" "iterator" "lazy-list"
+                           "map-entries" "range" "set" "sorted-map-entries"
+                           "subvector"]
+            "size" ["8"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "focused-decision-map-workloads"
    :class "xfseq.bench.Phase3FocusedBenchmark"
    :method "traverse"
    :params {"implementation" ["core-direct" "candidate-direct" "xfseq-generic"
@@ -78,4 +90,27 @@
             "sourceKind" ["vector"]
             "size" ["1000"]
             "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "focused-decision-java-list-filter-remove"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["java-polymorphic-object-reduced-aware-v2"
+                              "java-mixed-object-reduced-aware-v2"
+                              "java-mixed-object-nonreducing-v2"
+                              "java-dechunked-object-reduced-aware-v2"
+                              "java-dechunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
+            "takeCount" ["0"]}}
+  {:id "focused-decision-java-vector-filter-remove"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["java-chunked-object-reduced-aware-v2"
+                              "java-chunked-object-nonreducing-v2"]
+            "operation" ["filter" "remove"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["selectivity-50"]
             "takeCount" ["0"]}}]}

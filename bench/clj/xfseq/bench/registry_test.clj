@@ -144,7 +144,7 @@
     (is (= :screen (:profile manifest)))
     (is (= :decision (:profile decision)))
     (is (= 237 (count (registry/manifest-identities manifest))))
-    (is (= 241 (count (registry/manifest-identities decision))))
+    (is (= 309 (count (registry/manifest-identities decision))))
     (is (every? (set registry/phase3-focused-source-kinds)
                 ["map-entries" "sorted-map-entries" "repeat" "iterate"]))
     (is (every? (set ["identity" "arithmetic" "heavy"
