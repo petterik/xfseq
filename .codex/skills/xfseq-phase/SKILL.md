@@ -71,7 +71,7 @@ implementation`.
 
 ## Run mode
 
-Expected orchestrator setup: `gpt-5.6-sol`, medium reasoning. Read and follow
+Expected orchestrator setup: `gpt-6-astra`, medium reasoning. Read and follow
 [`run-plan`](../run-plan/SKILL.md). Use sequential `luna_worker` agents. After
 the parent reviews and accepts each worker's slice, commit that slice and
 record its SHA before starting the next worker; do not push automatically.

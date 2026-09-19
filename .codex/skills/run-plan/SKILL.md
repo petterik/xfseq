@@ -10,7 +10,7 @@ phase plan `Ready for implementation`.
 
 Expected setup:
 
-- orchestrator: `gpt-5.6-sol`, medium reasoning;
+- orchestrator: `gpt-6-astra`, medium reasoning;
 - workers: `luna_worker` agents;
 - concurrency: exactly one worker at a time.
 

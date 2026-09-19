@@ -29,7 +29,7 @@ Work on one phase at a time with `$xfseq-phase`:
 1. `plan` — `gpt-5.6-sol`, high reasoning. Apply confidence and prioritization,
    review the plan once or twice, then pass the pre-implementation
    `$xfseq-review` gate.
-2. `run` — `gpt-5.6-sol`, medium reasoning orchestrator with sequential
+2. `run` — `gpt-6-astra`, medium reasoning orchestrator with sequential
    `luna_worker` agents. Never run workers concurrently.
 3. `review` — `gpt-5.6-sol`, high reasoning. Perform the final semantic,
    performance, simplicity, and maintainability gate.
