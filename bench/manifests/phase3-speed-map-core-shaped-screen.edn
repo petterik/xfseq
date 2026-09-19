@@ -1,0 +1,149 @@
+{:schema-version 1
+ :phase :phase3
+ :profile :screen
+ :description "Fixed Phase 3 unary speed-lab map screen for the benchmark-only core-shaped ceiling control."
+ :cells
+ [{:id "speed-map-core-shaped-first-list-8-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["8"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-first-vector-32-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["32"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-prefix8-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-prefix8-vector-32-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["32"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-traverse-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-traverse-vector-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-reduce-unretained-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-reduce-unretained-vector-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-reduce-retained-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-reduce-retained-vector-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-traverse-list-1000-arithmetic"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["arithmetic"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-traverse-vector-1000-arithmetic"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["arithmetic"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-prefix8-subvector-33-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["subvector"]
+            "size" ["33"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-traverse-lazy-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["lazy-list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-traverse-vector-33-arithmetic"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["33"]
+            "workload" ["arithmetic"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-core-shaped-reduce-unretained-array-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "core-shaped"]
+            "operation" ["map"]
+            "sourceKind" ["array"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}]}

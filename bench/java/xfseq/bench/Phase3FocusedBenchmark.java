@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 public class Phase3FocusedBenchmark {
 
     @Param({
-            "core-direct", "candidate-direct", "xfseq-generic", "sequence",
+            "core-direct", "core-shaped", "candidate-direct", "xfseq-generic", "sequence",
             "eduction", "transduce",
             "java-polymorphic-object-reduced-aware-v2",
             "java-mixed-object-reduced-aware-v2",

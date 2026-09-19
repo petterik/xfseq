@@ -24,6 +24,7 @@ import xfseq.bench.calls$_focusedCoreFilter;
 import xfseq.bench.calls$_focusedCoreMap;
 import xfseq.bench.calls$_focusedCoreRemove;
 import xfseq.bench.calls$_focusedCoreTake;
+import xfseq.bench.calls$_coreShapedMap;
 import xfseq.bench.calls$_focusedCandidateFilter;
 import xfseq.bench.calls$_focusedCandidateMap;
 import xfseq.bench.calls$_focusedCandidateRemove;
@@ -130,6 +131,8 @@ final class Phase3FocusedBenchmarkSupport {
         int comparisons = 0;
         String[] primary = {"core-direct", "candidate-direct", "xfseq-generic",
                 "sequence", "eduction", "transduce"};
+        String[] mapPrimary = {"core-direct", "core-shaped", "candidate-direct",
+                "xfseq-generic", "sequence", "eduction", "transduce"};
         String[] mapWorkloads = {"identity", "arithmetic", "heavy"};
         String[] selectivities = {"selectivity-0", "selectivity-50",
                 "selectivity-1", "selectivity-99", "selectivity-100"};
@@ -141,9 +144,18 @@ final class Phase3FocusedBenchmarkSupport {
         for (String workload : mapWorkloads) {
             for (String sourceKind : new String[]{"list", "vector",
                     "map-entries"}) {
-                comparisons += compareCase(primary, "map", workload,
+                comparisons += compareCase(mapPrimary, "map", workload,
                         sourceKind, 32, "0");
             }
+        }
+        for (String[] holdout : new String[][]{
+                {"subvector", "33", "identity"},
+                {"lazy-list", "1000", "identity"},
+                {"vector", "33", "arithmetic"},
+                {"array", "1000", "identity"}}) {
+            comparisons += compareCase(new String[]{"core-direct", "core-shaped"},
+                    "map", holdout[2], holdout[0],
+                    Integer.parseInt(holdout[1]), "0");
         }
         for (String operation : new String[]{"filter", "remove"}) {
             for (String workload : selectivities) {
@@ -263,6 +275,19 @@ final class Phase3FocusedBenchmarkSupport {
         }
         if ("candidate-direct".equals(implementation)) {
             return candidatePlan(operation);
+        }
+        if ("core-shaped".equals(implementation)) {
+            if (!"map".equals(operation)) {
+                throw new IllegalArgumentException(
+                        "Core-shaped control only applies to map");
+            }
+            return directPlan(new DirectCall() {
+                @Override
+                public Object call(Object function, Object xform,
+                                   Object source, int takeCount) {
+                    return calls$_coreShapedMap.invokeStatic(function, source);
+                }
+            });
         }
         if ("xfseq-generic".equals(implementation)) {
             return publicPlan(new PublicCall() {

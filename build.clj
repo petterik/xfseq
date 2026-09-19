@@ -113,6 +113,18 @@
                   :src-dirs ["src" "test" "bench/clj"]
                   :ns-compile bench-namespaces
                   :compile-opts {:direct-linking true}})
+  ;; Load calls from source before recompiling it. Direct linking resolves
+  ;; self-recursion only when the function Var is already bound.
+  (process!
+    (:command-args
+      (b/java-command
+        {:basis @bench-basis
+         :main 'clojure.main
+         :main-args
+         ["-e" (str "(binding [*compiler-options* {:direct-linking true} "
+                    "*compile-path* " (pr-str bench-class-dir) "] "
+                    "(require 'xfseq.bench.calls) "
+                    "(compile 'xfseq.bench.calls))")]})))
   ;; The JMH annotation processor is supplied by the pinned
   ;; jmh-generator-annprocess dependency in :bench.
   (b/javac {:basis @bench-basis
@@ -157,6 +169,7 @@
    "xfseq.bench.calls$_coreRemove"
    "xfseq.bench.calls$_coreTake"
    "xfseq.bench.calls$_focusedCoreMap"
+   "xfseq.bench.calls$_coreShapedMap"
    "xfseq.bench.calls$_focusedCoreFilter"
    "xfseq.bench.calls$_focusedCoreRemove"
    "xfseq.bench.calls$_focusedCoreTake"
@@ -189,10 +202,26 @@
   [_]
   (bench-aot nil)
   (let [classes phase3-linkage-classes
-        output (capture-process!
-                 (into ["javap" "-classpath" bench-class-dir "-c"] classes))
+        helper-output (capture-process!
+                        ["javap" "-classpath" bench-class-dir "-c"
+                         "xfseq.bench.calls$core_shaped_map"])
+        thunk (some-> (re-find #"// class (xfseq/bench/calls\$core_shaped_map\$fn__\d+)"
+                              helper-output)
+                      second
+                      (str/replace "/" "."))
+        _ (when-not thunk
+            (throw (ex-info "Core-shaped map lazy thunk was not found" {})))
+        thunk-output (capture-process!
+                       ["javap" "-classpath" bench-class-dir "-c" thunk])
+        wrappers-output (capture-process!
+                          (into ["javap" "-classpath" bench-class-dir "-c"] classes))
+        output (str wrappers-output helper-output thunk-output)
         linkage-file (str "target/bench/phase3-linkage-" (git-commit) ".txt")]
     (b/write-file {:path linkage-file :string output})
+    (when-not (= 2 (count (re-seq #"invokestatic[^\n]*xfseq/bench/calls\$core_shaped_map.invokeStatic"
+                                 thunk-output)))
+      (throw (ex-info "Core-shaped map recursion did not direct-link"
+                      {:thunk thunk :linkage-file linkage-file})))
     (when (re-find #"clojure/lang/Var|Var\.intern|Var\.get" output)
       (throw (ex-info "Phase 3 AOT caller contains a Var lookup"
                       {:classes classes :linkage-file linkage-file})))
@@ -203,7 +232,8 @@
                      "xfseq/core$map.invokeStatic"
                      "xfseq/core$filter.invokeStatic"
                      "xfseq/core$remove.invokeStatic"
-                     "xfseq/core$take.invokeStatic"]]
+                     "xfseq/core$take.invokeStatic"
+                     "xfseq/bench/calls$core_shaped_map.invokeStatic"]]
       (when-not (str/includes? output required)
         (throw (ex-info "Phase 3 caller did not direct-link required unary call"
                         {:required required
@@ -714,6 +744,9 @@
 (def phase3-speed-map-manifest-file
   "bench/manifests/phase3-speed-map-screen.edn")
 
+(def phase3-speed-map-core-shaped-manifest-file
+  "bench/manifests/phase3-speed-map-core-shaped-screen.edn")
+
 (defn phase3-bench-speed-map-screen
   "Run the fixed direct-on map speed-lab sentinel/holdout screen.
 
@@ -727,6 +760,17 @@
     phase3-speed-map-manifest-file
     "results/phase-3/speed-lab/"
     "xfseq-phase3-speed-lab-"
+    false))
+
+(defn phase3-bench-speed-map-core-shaped-screen
+  "Run the fixed direct-on map screen against the benchmark-only core-shaped control."
+  [{:keys [run-id]}]
+  (phase3-bench-profile*
+    :speed-lab-screen
+    {:run-id run-id}
+    phase3-speed-map-core-shaped-manifest-file
+    "results/phase-3/speed-lab/"
+    "xfseq-phase3-speed-lab-core-shaped-"
     false))
 
 (defn phase3-bench-screen

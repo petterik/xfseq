@@ -151,6 +151,8 @@
                       "selectivity-0" "selectivity-1" "selectivity-50"
                       "selectivity-99" "selectivity-100" "take"])
                 registry/phase3-focused-workloads))
+    (is (some #(= "core-shaped" %)
+              registry/phase3-focused-implementations))
     (is (some #(= "java-mixed-object-nonreducing-v2" %)
               registry/phase3-focused-implementations))))
 
@@ -234,6 +236,32 @@
            (:jvm-opts profile)))
     (is (= :speed-lab-reversal-screen (:purpose profile)))))
 
+(deftest phase3-speed-map-core-shaped-manifest-matches-baseline
+  (let [baseline (registry/read-manifest
+                   "bench/manifests/phase3-speed-map-screen.edn")
+        control (registry/read-manifest
+                  "bench/manifests/phase3-speed-map-core-shaped-screen.edn")
+        dimensions (fn [manifest]
+                     (set (map (fn [{:keys [method params]}]
+                                 [method
+                                  (get-in params ["sourceKind" 0])
+                                  (get-in params ["size" 0])
+                                  (get-in params ["workload" 0])
+                                  (get-in params ["takeCount" 0])])
+                               (:cells manifest))))]
+    (is (= :phase3 (:phase control)))
+    (is (= :screen (:profile control)))
+    (is (= 16 (count (:cells control))))
+    (is (= 32 (count (registry/manifest-identities control))))
+    (is (= (dimensions baseline) (dimensions control)))
+    (is (every? #(= "xfseq.bench.Phase3FocusedBenchmark" (:class %))
+                (:cells control)))
+    (is (every? #(= ["core-direct" "core-shaped"]
+                    (get-in % [:params "implementation"]))
+                (:cells control)))
+    (is (every? #(= ["map"] (get-in % [:params "operation"]))
+                (:cells control)))))
+
 (deftest phase3-focused-manifest-rejects-inapplicable-cells
   (let [manifest-file (temporary-path ".phase3-focused.edn")
         base {"implementation" ["java-dechunked-object-reduced-aware-v2"]
@@ -268,6 +296,16 @@
       (registry/write-edn-new!
         manifest-file
         (focused-phase3-manifest (assoc base "workload" ["take"])))
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (registry/read-manifest manifest-file)))
+      (.delete (io/file manifest-file))
+      (registry/write-edn-new!
+        manifest-file
+        (focused-phase3-manifest
+          (assoc base
+                 "implementation" ["core-shaped"]
+                 "operation" ["filter"]
+                 "workload" ["selectivity-50"])))
       (is (thrown? clojure.lang.ExceptionInfo
                    (registry/read-manifest manifest-file)))
       (.delete (io/file manifest-file))

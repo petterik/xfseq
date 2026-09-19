@@ -2090,6 +2090,29 @@ rows have wide intervals and are inconclusive. This screen establishes the
 fresh comparison baseline; it makes no new adoption or causal claim. Proceed
 to the benchmark-only core-shaped control, before any production experiment.
 
+### Speed Slice 1 run log
+
+| Date/time | Stage | Agent | Work | Result |
+|---|---|---|---|---|
+| 2026-09-19 | Pre-slice state record | `/root/speed_slice1` | Recorded the clean starting implementation and the accepted Slice 0 harness before editing. | Starting HEAD `781947d`; predecessor harness `d17826d`; baseline receipt `results/phase-3/speed-lab/bench/speed-lab-screen-d17826d2551a17555d531dce1d8349c4b4c61cc3-slice0-20260919-map-baseline.json` (SHA-256 `759ddd28a1ccce95e93e2c16530e2cf218c5f35fb0d86f19a426658f374c7f42`). No timing or performance verdict. |
+| 2026-09-19 | Control implementation and validation | /root/speed_slice1 | Added the benchmark-only core-shaped unary map control, focused setup/registry support, an exact-dimension 16-cell/32-identity control manifest, direct-linkage assertion, boundary/holdout trial rows, and the dedicated speed-lab build entry point. No public or generic product path changed. | clojure -Srepro -M:bench -m xfseq.bench.runner manifest accepted both baseline and control manifests (16 cells / 32 identities each); registry suite passed 12 tests / 91 assertions; clojure -Srepro -T:build phase3-bench-trial '{}' passed 72 / 420 primary and 356 focused trial cases, with the linkage gate passing and the core-shaped wrapper statically targeting its helper. git diff --check passed. No timing or performance verdict. Parent timing command: clojure -Srepro -T:build phase3-bench-speed-map-core-shaped-screen '{:run-id "slice1-20260919-map-core-shaped"}'. |
+
+### Speed Slice 1 parent integration
+
+Parent inspection found that the original wrapper-only linkage gate missed
+Var-based self-recursion inside the control's lazy thunk. Repeating the AOT
+namespace in `:ns-compile` did not fix it. The accepted build loads the calls
+namespace from source in a separate compiler process, then compiles it with
+direct linking; its output directory is deliberately absent from that process's
+classpath so compilation cannot reuse the old AOT classes. The gate now follows
+the helper's actual lazy-thunk class, rejects Var references, and requires both
+recursive calls to be static. No product source changed.
+
+Parent independently reran `phase3-bench-trial`: exit 0, primary 72 fresh cases /
+420 sink checks, focused 356 cases, recursive linkage gate passed. Registry tests
+passed 12 / 91, and `git diff --check` passed. Timing remains pending; earlier
+wrapper-only success is superseded by this stronger verification.
+
 ### Speed-lab What matters
 
 - Exact semantics remain non-negotiable; only experimental simplicity is relaxed.

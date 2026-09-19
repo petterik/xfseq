@@ -112,7 +112,7 @@
    "repeat" "iterate"])
 
 (def phase3-focused-implementations
-  (vec (concat phase3-implementations candidate-ids)))
+  (vec (concat phase3-implementations ["core-shaped"] candidate-ids)))
 
 (def phase3-focused-workloads
   ["identity" "arithmetic" "heavy" "selectivity-0" "selectivity-1"
@@ -469,6 +469,12 @@
               (throw (ex-info "Focused Phase 3 transduce has no construct/retained-head sink"
                               {:path (.getPath file) :id id
                                :method method :implementations implementations})))
+            (when (and (some #{"core-shaped"} implementations)
+                       (some #(not= "map" %) operations))
+              (throw (ex-info "Focused Phase 3 core-shaped control only applies to map"
+                              {:path (.getPath file) :id id
+                               :operations operations
+                               :implementations implementations})))
             (when-not (every?
                        (fn [[operation workload]]
                          (case operation

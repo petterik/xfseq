@@ -241,6 +241,28 @@
   [f source]
   (core/map f source))
 
+;; Benchmark-only ceiling control copied from the installed Clojure 1.12.5
+;; unary lazy `map` body.  The recursive calls intentionally target this
+;; helper so the control measures the core-shaped sequence structure without
+;; delegating the whole operation back to `clojure.core/map`.
+(defn core-shaped-map
+  {:static true}
+  [f coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (if (chunked-seq? s)
+        (let [c (chunk-first s)
+              size (int (count c))
+              b (chunk-buffer size)]
+          (dotimes [i size]
+            (chunk-append b (f (.nth c i))))
+          (chunk-cons (chunk b) (core-shaped-map f (chunk-rest s))))
+        (cons (f (first s)) (core-shaped-map f (rest s)))))))
+
+(defn -coreShapedMap
+  [f source]
+  (core-shaped-map f source))
+
 (defn -focusedCoreFilter
   [pred source]
   (core/filter pred source))
