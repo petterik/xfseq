@@ -2195,6 +2195,45 @@ will run the same four allocation rows for a before/after comparison.
 The small `phase3-bench-speed-lab` build entry point reuses all existing gates
 and non-overwriting speed-lab receipt paths for these declared manifests.
 
+### Speed Slice 2 confirmation — reject
+
+Screen/confirmation declaration checkpoint: `781553e0e0ca4c35e1bb28e244ebfc49b19cb5d3`.
+Product implementation remains `ca1d749`. Parent ran
+`clojure -Srepro -T:build phase3-bench-speed-lab '{:profile :decision
+:manifest-file "bench/manifests/phase3-speed-map-confirm.edn"
+:run-id "slice2-20260919-confirm"}'`: exit 0, full correctness/linkage/trial
+gates passed, exactly 26 identities at three forks / 5x1s, fixed heap/G1.
+
+- Result: `results/phase-3/speed-lab/bench/decision-781553e0e0ca4c35e1bb28e244ebfc49b19cb5d3-slice2-20260919-confirm.json`; SHA-256 `58ed3f32c491df2f744cd17e05277c7ab2ae5a1773786d391dc3156bc6c938d0`.
+- Environment: `results/phase-3/speed-lab/environment-decision-781553e0e0ca4c35e1bb28e244ebfc49b19cb5d3-slice2-20260919-confirm.edn`; SHA-256 `89263b3857b18cb287635f887a9a50cbe7e588a791c02814d47d3e96018c1379`.
+- Matched prior-champion rerun: `results/phase-3/speed-lab/bench/slice2-prior-confirm.json`;
+  SHA-256 `d07b2650d3e357258d5399551f4651a7013e0e41ea659e4761e5133124524969`.
+  The adjacent `environment-slice2-prior-confirm.json` records exact commands,
+  original jar/source environment identity, hashes and individual raw files.
+  It covers list-first's reversal plus every >5% core-drift confirmation cell:
+  vector first, list traversal, vector unretained reduction, vector/33 arithmetic.
+  All five pairs use the same three-fork / 5x1s settings as confirmation.
+- Cell-local report and all twelve retained-Java reference scores/intervals:
+  `results/phase-3/speed-lab/reports/slice2-map-step-confirmation.md`.
+
+Verdict: **reject Slice 2**. Matched list-first candidate throughput is
+14.517 million ops/s versus prior champion 23.444 million: -38.08%
+(conservative bounds -50.03% to -25.93%). This exceeds both the 5% rejection
+and 3% confirmation limits. The short-screen improvement did not repeat.
+Other cells cannot override that regression. Source-level simplification did
+occur (`invokeStep` bytecode 265 bytes versus shared step 633), but no inlining
+or causal performance claim is made.
+
+The user requested a pause after rejected-slice cleanup and checkpointing.
+The declared GC rows have **not been run**: the throughput rejection is decisive,
+no allocation claim or champion acceptance is made, and the pause takes priority
+over completing further experimental measurements. Keep the unused declared GC
+manifest as future run scaffolding, labeled unexecuted. Preserve all failed
+experiment receipts. Same-worker cleanup removes only the map-step selection
+and class, retaining the independently useful mixed-tail semantic oracle.
+After parent validation and cleanup commit, pause before Slice 3. Phase 3 run
+and final review remain unfinished; no Phase 4 work is authorized.
+
 ### Speed-lab What matters
 
 - Exact semantics remain non-negotiable; only experimental simplicity is relaxed.
