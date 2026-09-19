@@ -1,6 +1,6 @@
 # Implementation #1, Phase 3: unary core-function compatibility
 
-Status: In progress — unary speed lab
+Status: Paused per user after rejected Speed Slice 2 cleanup; not complete
 
 Parent design: [`docs/01-transducer-backed-lazy-seqs.md`](../01-transducer-backed-lazy-seqs.md)
 
@@ -2144,6 +2144,7 @@ become production or champion. Production champion remains `d17826d` behavior.
 |---|---|---|---|---|
 | 2026-09-19 | Pre-slice state record | `/root/speed_slice2` | Recorded the clean starting implementation and accepted Slice 1 control/evidence before editing. | Starting HEAD `9b6abd9`; production champion remains `d17826d`; Slice 1 implementation `fdd1e74` passed its predeclared gate. Baseline receipt remains `results/phase-3/speed-lab/bench/speed-lab-screen-d17826d2551a17555d531dce1d8349c4b4c61cc3-slice0-20260919-map-baseline.json`. No timing or performance verdict. |
 | 2026-09-19 | Monomorphic map implementation | `/root/speed_slice2` | Added the internal `XFSeqStepMap`, selected only at the `ObjectXFSeqInit` `MAP_LIKE` boundary, and retained the transformed reducing function, accumulator, completion, Reduced check, `ObjectBuffer`, ordinary `LazySeq`, and one-shot map failure behavior. Added a direct-core map oracle for both chunked-to-dechunked and dechunked-to-chunked mixed tails. | `clojure -Srepro -T:build javac` passed. Complete unary oracle passed 25 tests / 1,707 assertions; Phase 2 object engine/candidate pair passed 28 tests / 2,860 assertions; full `clojure -Srepro -T:build check` passed 54 tests / 4,613 assertions with lint 0/0 and reflection clean; `git diff --check` passed. No benchmark or performance verdict. |
+| 2026-09-19 | Rejected-slice cleanup | `/root/speed_slice2` | Removed the four-line `MAP_LIKE` selection from `ObjectXFSeqInit.java` and deleted `XFSeqStepMap.java`, preserving the mixed-tail semantic oracle and all speed-lab receipts/manifests. | Slice 2 is rejected per the recorded confirmation evidence (`e9ccb55`); cleanup is uncommitted and pending parent validation. `clojure -Srepro -T:build javac` passed; complete unary oracle passed 25 tests / 1,707 assertions; Phase 2 object engine/candidate pair passed 28 tests / 2,860 assertions; `git diff --check` passed. User-requested pause follows this cleanup; no Slice 3 or further measurements. |
 
 ### Speed Slice 2 parent checkpoint
 
@@ -2233,6 +2234,26 @@ experiment receipts. Same-worker cleanup removes only the map-step selection
 and class, retaining the independently useful mixed-tail semantic oracle.
 After parent validation and cleanup commit, pause before Slice 3. Phase 3 run
 and final review remain unfinished; no Phase 4 work is authorized.
+
+### Paused handoff after rejected Slice 2
+
+User requested this pause after cleanup. Parent inspected the exact removal,
+verified that `git diff aa57a49 -- src src-java` is empty, and independently ran
+`clojure -Srepro -T:build check '{}'`: exit 0, lint 0/0, reflection clean,
+54 tests / 4,613 assertions, zero failures/errors. `git diff --check` passed.
+The mixed-tail oracle remains; the rejected map class and selection do not.
+No benchmark process or worker remains active at the handoff.
+
+- Champion: unchanged pre-speed-lab production implementation.
+- Last experiment: Slice 2 implementation `ca1d749`, screen/declaration
+  `781553e`, rejection evidence `e9ccb55`.
+- Cleanup checkpoint: CLEANUP_SHA_PENDING.
+- Preserved: fixed screen/control/confirmation manifests, benchmark-only
+  core-shaped reference, raw receipts, ratios, hashes, and semantic oracle.
+- Not run: declared Slice 2 allocation rows; no allocation conclusion.
+- Next on explicit resume: Speed Slice 3, direct mapper invocation with the
+  current buffer, starting from the restored champion. No Slice 3 code exists.
+- Phase 3 speed lab and its final review are unfinished. Stop here; no Phase 4.
 
 ### Speed-lab What matters
 
