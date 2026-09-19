@@ -773,6 +773,17 @@
     "xfseq-phase3-speed-lab-core-shaped-"
     false))
 
+(defn phase3-bench-speed-lab
+  "Run a declared speed-lab confirmation or allocation manifest with full gates."
+  [{:keys [profile manifest-file run-id]}]
+  (let [profile (keyword (or profile "decision"))]
+    (when-not (and manifest-file (#{:decision :decision-gc} profile))
+      (throw (ex-info "Speed-lab confirmation requires a manifest and decision/decision-gc profile"
+                      {:profile profile :manifest-file manifest-file})))
+    (phase3-bench-profile*
+      profile {:run-id run-id} manifest-file
+      "results/phase-3/speed-lab/" "xfseq-phase3-speed-lab-" false)))
+
 (defn phase3-bench-screen
   "Run the explicit Phase 3 direct-unary screen matrix."
   [opts]

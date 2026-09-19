@@ -1,0 +1,46 @@
+{:schema-version 1,
+ :phase :phase3,
+ :profile :decision,
+ :description
+ "Four representative candidate allocation rows: first list/vector, vector traversal and retained reduction.",
+ :cells
+ [{:id "allocation-0",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "first",
+   :params
+   {"implementation" ["candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["list"],
+    "size" ["8"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "allocation-1",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "first",
+   :params
+   {"implementation" ["candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["32"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "allocation-5",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "traverse",
+   :params
+   {"implementation" ["candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "allocation-9",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "reduceRetained",
+   :params
+   {"implementation" ["candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}]}

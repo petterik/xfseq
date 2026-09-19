@@ -2156,6 +2156,45 @@ standard buffer output. Parent independently reran unary plus object-engine:
 `git diff --check` passed. Full check is repeated by the timing task before JMH.
 Performance decision pending.
 
+### Speed Slice 2 screen and confirmation declaration
+
+Implementation `ca1d7495397737682924bf05149872a8d5ac940c`. Parent ran
+`phase3-bench-speed-map-screen '{:run-id "slice2-20260919-map-step"}'`:
+exit 0, full check 54 / 4,613, linkage and trials passed, exactly 32 rows.
+
+- Result: `results/phase-3/speed-lab/bench/speed-lab-screen-ca1d7495397737682924bf05149872a8d5ac940c-slice2-20260919-map-step.json`; SHA-256 `89c813729500d064db40a52da985fb9d90df67913f83a578cd0a3a93609de9e1`.
+- Environment: `results/phase-3/speed-lab/environment-speed-lab-screen-ca1d7495397737682924bf05149872a8d5ac940c-slice2-20260919-map-step.edn`; SHA-256 `b0bce150ae19f92e14a0df2bf1eac989e91fa388db3b9213fdbdfead4139f958`.
+- Ratios/intervals: `results/phase-3/speed-lab/reports/slice2-map-step-screen.md`.
+- Drift rerun: `results/phase-3/speed-lab/bench/slice2-drift-baseline-vector33-arithmetic.json`
+  and adjacent environment JSON record exact argv, original jar SHA, original
+  environment reference/hash and result SHA. The original unchanged baseline
+  jar reran the prior champion in vector/33 arithmetic traversal because core
+  shifted -6.01%. Prior candidate +1.70% versus its original score; core remains
+  noisy (-9.94%, broad interval). Slice 2 versus this rerun has no supported
+  regression. This cell cannot support a precise core-gap claim.
+
+Screen verdict: **proceed to confirmation, not yet champion**. Candidate point
+improvements include list first +15.49%, vector traversal +15.15%, vector
+unretained/retained reduction +27.77%/+41.92%. Many full-traversal intervals are
+wide; only list-first's improvement is supported by the conservative bounds.
+No cell has a supported >5% regression against the previous champion. Two
+important point gains exceed 8%, meeting the predeclared confirmation trigger.
+Vector partial-consumption gaps to core remain large.
+
+Before confirmation timing, parent declares
+`bench/manifests/phase3-speed-map-confirm.edn`: seven core/candidate cells
+(list/vector first, list/vector identity traversal, vector retained/unretained
+reduction, vector/33 arithmetic holdout) plus twelve retained-Java identities.
+The plan says four retained rows but names six source/sink dimensions; include
+all six (list/vector traversal and both reduction modes), each with eligible
+reduced-aware and nonreducing forms, so none of the named dimensions is omitted.
+The full confirmation has 13 cells / 26 identities, three forks and 5x1s.
+`phase3-speed-map-gc.edn` declares exactly four candidate GC rows: list/vector
+first, vector traversal, vector retained reduction. The unchanged baseline jar
+will run the same four allocation rows for a before/after comparison.
+The small `phase3-bench-speed-lab` build entry point reuses all existing gates
+and non-overwriting speed-lab receipt paths for these declared manifests.
+
 ### Speed-lab What matters
 
 - Exact semantics remain non-negotiable; only experimental simplicity is relaxed.

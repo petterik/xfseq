@@ -1,0 +1,148 @@
+{:schema-version 1,
+ :phase :phase3,
+ :profile :decision,
+ :description
+ "Fixed map confirmation subset plus all six named retained-Java source/sink dimensions.",
+ :cells
+ [{:id "confirm-0",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "first",
+   :params
+   {"implementation" ["core-direct" "candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["list"],
+    "size" ["8"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-1",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "first",
+   :params
+   {"implementation" ["core-direct" "candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["32"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-4",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "traverse",
+   :params
+   {"implementation" ["core-direct" "candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["list"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-5",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "traverse",
+   :params
+   {"implementation" ["core-direct" "candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-7",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "reduceUnretained",
+   :params
+   {"implementation" ["core-direct" "candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-9",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "reduceRetained",
+   :params
+   {"implementation" ["core-direct" "candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-14",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "traverse",
+   :params
+   {"implementation" ["core-direct" "candidate-direct"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["33"],
+    "workload" ["arithmetic"],
+    "takeCount" ["0"]}}
+  {:id "confirm-java-list-traverse",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "traverse",
+   :params
+   {"implementation"
+    ["java-dechunked-object-reduced-aware-v2"
+     "java-dechunked-object-nonreducing-v2"],
+    "operation" ["map"],
+    "sourceKind" ["list"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-java-list-reduceUnretained",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "reduceUnretained",
+   :params
+   {"implementation"
+    ["java-dechunked-object-reduced-aware-v2"
+     "java-dechunked-object-nonreducing-v2"],
+    "operation" ["map"],
+    "sourceKind" ["list"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-java-list-reduceRetained",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "reduceRetained",
+   :params
+   {"implementation"
+    ["java-dechunked-object-reduced-aware-v2"
+     "java-dechunked-object-nonreducing-v2"],
+    "operation" ["map"],
+    "sourceKind" ["list"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-java-vector-traverse",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "traverse",
+   :params
+   {"implementation"
+    ["java-chunked-object-reduced-aware-v2"
+     "java-chunked-object-nonreducing-v2"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-java-vector-reduceUnretained",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "reduceUnretained",
+   :params
+   {"implementation"
+    ["java-chunked-object-reduced-aware-v2"
+     "java-chunked-object-nonreducing-v2"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}
+  {:id "confirm-java-vector-reduceRetained",
+   :class "xfseq.bench.Phase3FocusedBenchmark",
+   :method "reduceRetained",
+   :params
+   {"implementation"
+    ["java-chunked-object-reduced-aware-v2"
+     "java-chunked-object-nonreducing-v2"],
+    "operation" ["map"],
+    "sourceKind" ["vector"],
+    "size" ["1000"],
+    "workload" ["identity"],
+    "takeCount" ["0"]}}]}
