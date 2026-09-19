@@ -61,6 +61,10 @@ public final class ObjectXFSeqInit extends AFn {
                 return buffer.isEmpty() ? null : buffer.toTail();
             }
 
+            if (profile == UnaryProfile.MAP_LIKE) {
+                return new XFSeqStepMap(buffer, reducingFn, buffer, source)
+                        .invoke();
+            }
             step = new XFSeqStepSimple(buffer, reducingFn, buffer, source,
                                        profile);
             return step.invoke();

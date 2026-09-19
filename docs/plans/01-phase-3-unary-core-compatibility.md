@@ -2138,6 +2138,24 @@ about that sink-specific/JIT anomaly is made. The predeclared gate permits one
 failing cell; it is not rewritten after seeing the data. The control does not
 become production or champion. Production champion remains `d17826d` behavior.
 
+### Speed Slice 2 run log
+
+| Date/time | Stage | Agent | Work | Result |
+|---|---|---|---|---|
+| 2026-09-19 | Pre-slice state record | `/root/speed_slice2` | Recorded the clean starting implementation and accepted Slice 1 control/evidence before editing. | Starting HEAD `9b6abd9`; production champion remains `d17826d`; Slice 1 implementation `fdd1e74` passed its predeclared gate. Baseline receipt remains `results/phase-3/speed-lab/bench/speed-lab-screen-d17826d2551a17555d531dce1d8349c4b4c61cc3-slice0-20260919-map-baseline.json`. No timing or performance verdict. |
+| 2026-09-19 | Monomorphic map implementation | `/root/speed_slice2` | Added the internal `XFSeqStepMap`, selected only at the `ObjectXFSeqInit` `MAP_LIKE` boundary, and retained the transformed reducing function, accumulator, completion, Reduced check, `ObjectBuffer`, ordinary `LazySeq`, and one-shot map failure behavior. Added a direct-core map oracle for both chunked-to-dechunked and dechunked-to-chunked mixed tails. | `clojure -Srepro -T:build javac` passed. Complete unary oracle passed 25 tests / 1,707 assertions; Phase 2 object engine/candidate pair passed 28 tests / 2,860 assertions; full `clojure -Srepro -T:build check` passed 54 tests / 4,613 assertions with lint 0/0 and reflection clean; `git diff --check` passed. No benchmark or performance verdict. |
+
+### Speed Slice 2 parent checkpoint
+
+Parent inspected the complete initializer/step/test diff. The initializer's
+map-only selection leaves the existing take error handling and generic driver
+unchanged. The new step preserves mapper-before-rest and chunk-before-tail
+ordering, one-shot failure cleanup, RF/accumulator/Reduced/completion, and
+standard buffer output. Parent independently reran unary plus object-engine:
+38 tests / 1,841 assertions; the full Phase 2 pair: 28 / 2,860; all passed.
+`git diff --check` passed. Full check is repeated by the timing task before JMH.
+Performance decision pending.
+
 ### Speed-lab What matters
 
 - Exact semantics remain non-negotiable; only experimental simplicity is relaxed.

@@ -6,7 +6,7 @@
   without accidentally sharing a consumed lazy source."
   (:require [clojure.test :refer [deftest is testing]]
             [xfseq.core :as xfseq])
-  (:import [clojure.lang ASeq IChunk IChunkedSeq LazySeq Seqable]
+  (:import [clojure.lang ASeq ArrayChunk ChunkedCons IChunk IChunkedSeq LazySeq Seqable]
            [java.lang.reflect Field]
            [java.util ArrayList Collection]
            [java.util.concurrent CountDownLatch]))
@@ -457,6 +457,24 @@
             direct (clojure.core/take take-count input)
             candidate (xfseq/take take-count (vec input))]
         (is (= (node-kinds direct) (node-kinds candidate)))))))
+
+(deftest unary-candidate-map-mixed-chunk-and-dechunk-tail-matches-direct-core
+  (doseq [[expected source-builder]
+          [[[1 2 3 4 5]
+            (fn []
+              (cons 0
+                    (ChunkedCons. (ArrayChunk. (object-array [1 2]) 0 2)
+                                  (list 3 4))))]
+           [[1 2 3 4]
+            (fn []
+              (ChunkedCons. (ArrayChunk. (object-array [0 1]) 0 2)
+                            (list 2 3)))]]]
+    (let [direct (clojure.core/map inc (source-builder))
+          candidate (xfseq/map inc (source-builder))]
+      (is (= expected (vec direct)))
+      (is (= (vec direct) (vec candidate)))
+      (is (= (chunk-sizes direct) (chunk-sizes candidate)))
+      (is (= (node-kinds direct) (node-kinds candidate))))))
 
 (deftest unary-candidate-dechunked-order-matches-direct-core
   (testing "map invokes the mapper before source rest"
