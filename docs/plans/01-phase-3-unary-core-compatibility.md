@@ -2113,6 +2113,31 @@ Parent independently reran `phase3-bench-trial`: exit 0, primary 72 fresh cases 
 passed 12 / 91, and `git diff --check` passed. Timing remains pending; earlier
 wrapper-only success is superseded by this stronger verification.
 
+### Speed Slice 1 evidence and verdict
+
+Implementation checkpoint: `fdd1e7427c01e97e7f44159b73bcecfda8a7f932`.
+Parent ran `clojure -Srepro -T:build phase3-bench-speed-map-core-shaped-screen
+'{:run-id "slice1-20260919-map-core-shaped"}'`: exit 0. Full check 53 / 4,605,
+recursive linkage, primary 72 / 420 and focused 356 trials passed. Parent
+verified all 32 rows, two forks, three warmups/measurements and fixed heap/G1.
+
+- Raw result: `results/phase-3/speed-lab/bench/speed-lab-screen-fdd1e7427c01e97e7f44159b73bcecfda8a7f932-slice1-20260919-map-core-shaped.json`; SHA-256 `9814a40884f84d2b17f048be03e939e990934f85c159d8c2463c0903fbae3b0c`.
+- Environment: `results/phase-3/speed-lab/environment-speed-lab-screen-fdd1e7427c01e97e7f44159b73bcecfda8a7f932-slice1-20260919-map-core-shaped.edn`; SHA-256 `612c0cad056da4a21d0d999778f7e289a56cab5afd9201e3de45bc8b447f3adf`.
+- Cell-local report: `results/phase-3/speed-lab/reports/slice1-core-shaped-control.md`.
+  The report's Candidate column is the control; Prior-candidate compares that
+  control with the unchanged production baseline and is not an adoption claim.
+
+Verdict: **gate passes; continue to Slice 2**. Using the recorded conservative
+confidence-endpoint bounds, 15 / 16 cells have no supported regression over 3%,
+and no holdout has a supported regression over 5%. Core score drift is at most
+2.48%, so no drift rerun is triggered. Vector/1,000 unretained reduction is an
+explicit exception: control -53.70% (bounds -55.57% to -51.78%). Vector traversal
+is +39.73% and vector/33 arithmetic traversal +18.24%; these structurally similar
+paths are not uniformly interchangeable performance controls. No causal claim
+about that sink-specific/JIT anomaly is made. The predeclared gate permits one
+failing cell; it is not rewritten after seeing the data. The control does not
+become production or champion. Production champion remains `d17826d` behavior.
+
 ### Speed-lab What matters
 
 - Exact semantics remain non-negotiable; only experimental simplicity is relaxed.
