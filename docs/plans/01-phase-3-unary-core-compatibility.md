@@ -2061,6 +2061,35 @@ Verdict: `ready for implementation`.
   bounds, not a separately estimated ratio confidence interval. Overlapping
   bounds do not establish equivalence or a supported regression.
 
+### Speed Slice 0 baseline evidence
+
+Harness checkpoint: `d17826d2551a17555d531dce1d8349c4b4c61cc3`.
+Current production champion remains the September 1 implementation, unchanged
+at this checkpoint.
+
+Parent command: `clojure -Srepro -T:build phase3-bench-speed-map-screen
+'{:run-id "slice0-20260919-map-baseline"}'` (exit 0). Full check passed
+53 / 4,605, linkage passed, primary trial 72 / 420 and focused trial 339
+passed before timing. The runner validated exactly 32 rows; parent also checked
+2 forks, 3 warmups/measurements, fixed 2-GiB G1 arguments and fork samples in
+every JSON row.
+
+- Result: `results/phase-3/speed-lab/bench/speed-lab-screen-d17826d2551a17555d531dce1d8349c4b4c61cc3-slice0-20260919-map-baseline.json`; SHA-256
+  `759ddd28a1ccce95e93e2c16530e2cf218c5f35fb0d86f19a426658f374c7f42`.
+- Environment: `results/phase-3/speed-lab/environment-speed-lab-screen-d17826d2551a17555d531dce1d8349c4b4c61cc3-slice0-20260919-map-baseline.edn`; SHA-256
+  `3a149bb85a21047118fe810f7b080376dbda44d0980fdfc08e9aab9148aa56d6`. Includes exact argv,
+  jar/source/manifest hashes, runtime and dirty state.
+- Cell-local scores, confidence bounds and ratios:
+  `results/phase-3/speed-lab/reports/slice0-map-baseline.md`, reproduced by
+  the adjacent `compare.py` from raw JSON.
+
+Baseline observation: current map remains clearly behind direct core in the
+vector partial/full cases (point estimates about 23–61% lower), list first
+(19.7% lower), and subvector prefix (16.3% lower). Several full list/array
+rows have wide intervals and are inconclusive. This screen establishes the
+fresh comparison baseline; it makes no new adoption or causal claim. Proceed
+to the benchmark-only core-shaped control, before any production experiment.
+
 ### Speed-lab What matters
 
 - Exact semantics remain non-negotiable; only experimental simplicity is relaxed.
