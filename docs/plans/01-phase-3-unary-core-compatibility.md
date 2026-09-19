@@ -2247,7 +2247,7 @@ No benchmark process or worker remains active at the handoff.
 - Champion: unchanged pre-speed-lab production implementation.
 - Last experiment: Slice 2 implementation `ca1d749`, screen/declaration
   `781553e`, rejection evidence `e9ccb55`.
-- Cleanup checkpoint: CLEANUP_SHA_PENDING.
+- Cleanup checkpoint: `98df3f18323c0c4980ac8719c07cbffb9af4260e`.
 - Preserved: fixed screen/control/confirmation manifests, benchmark-only
   core-shaped reference, raw receipts, ratios, hashes, and semantic oracle.
 - Not run: declared Slice 2 allocation rows; no allocation conclusion.
