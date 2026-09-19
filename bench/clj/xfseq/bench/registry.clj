@@ -167,6 +167,17 @@
             :format "json"
             :jvm-opts []
             :purpose :plausible-reversal-screen}
+   ;; The reopened unary speed lab has a fixed direct-on heap/GC lane.  Keep
+   ;; this profile distinct so old Phase 3 :screen receipts retain their
+   ;; historical execution meaning.
+   :speed-lab-screen {:forks 2
+                      :warmups 3
+                      :measurements 3
+                      :warmup-time "1s"
+                      :measurement-time "1s"
+                      :format "json"
+                      :jvm-opts ["-Xms2g" "-Xmx2g" "-XX:+UseG1GC"]
+                      :purpose :speed-lab-reversal-screen}
    :decision {:forks 3
               :warmups 5
               :measurements 5
@@ -556,10 +567,13 @@
 
   GC evidence reruns the decision cells, so `:decision-gc` intentionally
   validates against a `:decision` manifest while retaining its stricter
-  result-profile validation."
+  result-profile validation.  The speed-lab screen similarly reuses the
+  ordinary `:screen` manifest shape while keeping its fixed JVM lane and
+  result namespace distinct."
   [profile]
-  (if (= :decision-gc profile)
-    :decision
+  (case profile
+    :decision-gc :decision
+    :speed-lab-screen :screen
     profile))
 
 (defn- validate-manifest-profile!

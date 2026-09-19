@@ -1,0 +1,149 @@
+{:schema-version 1
+ :phase :phase3
+ :profile :screen
+ :description "Fixed Phase 3 unary speed-lab map sentinel and parent-owned holdout cells."
+ :cells
+ [{:id "speed-map-first-list-8-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["8"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-first-vector-32-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "first"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["32"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-prefix8-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-prefix8-vector-32-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["32"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-traverse-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-traverse-vector-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-reduce-unretained-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-reduce-unretained-vector-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-reduce-retained-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-reduce-retained-vector-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceRetained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-traverse-list-1000-arithmetic"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["list"]
+            "size" ["1000"]
+            "workload" ["arithmetic"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-traverse-vector-1000-arithmetic"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["1000"]
+            "workload" ["arithmetic"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-prefix8-subvector-33-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "prefix8"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["subvector"]
+            "size" ["33"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-traverse-lazy-list-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["lazy-list"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-traverse-vector-33-arithmetic"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "traverse"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["vector"]
+            "size" ["33"]
+            "workload" ["arithmetic"]
+            "takeCount" ["0"]}}
+  {:id "speed-map-reduce-unretained-array-1000-identity"
+   :class "xfseq.bench.Phase3FocusedBenchmark"
+   :method "reduceUnretained"
+   :params {"implementation" ["core-direct" "candidate-direct"]
+            "operation" ["map"]
+            "sourceKind" ["array"]
+            "size" ["1000"]
+            "workload" ["identity"]
+            "takeCount" ["0"]}}]}

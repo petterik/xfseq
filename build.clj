@@ -613,6 +613,15 @@
             :warmup-time "1s"
             :measurement-time "1s"
             :jvm-opts []}
+   ;; The reopened speed lab has a distinct fixed direct-on lane.  Keep the
+   ;; historical Phase 3 :screen profile unchanged so old receipts remain
+   ;; comparable only to one another.
+   :speed-lab-screen {:forks 2
+                      :warmups 3
+                      :measurements 3
+                      :warmup-time "1s"
+                      :measurement-time "1s"
+                      :jvm-opts ["-Xms2g" "-Xmx2g" "-XX:+UseG1GC"]}
    :decision {:forks 3
               :warmups 5
               :measurements 5
@@ -659,16 +668,27 @@
   (manifest-cell-output "Phase 3" temporary index cell))
 
 (declare phase3-trial!)
+(declare phase3-bench-profile*)
 
 (defn- phase3-bench-profile
   [profile opts]
+  (let [manifest-file (or (:manifest-file opts)
+                          (phase3-manifest-file profile))]
+    (phase3-bench-profile* profile opts manifest-file
+                           "results/phase-3/"
+                           "xfseq-phase3-"
+                           true)))
+
+(defn- phase3-bench-profile*
+  [profile opts manifest-file result-root temporary-prefix focused-subdir?]
   ;; A timing profile is never allowed to bypass the semantic/build/linkage
   ;; gates, even when the caller asks only for one checked-in subset.
-  (let [manifest-file (or (:manifest-file opts)
-                          (phase3-manifest-file profile))
-        manifest (edn/read-string (slurp manifest-file))
+  (let [manifest (edn/read-string (slurp manifest-file))
         focused? (= "xfseq.bench.Phase3FocusedBenchmark"
-                    (-> manifest :cells first :class))]
+                    (-> manifest :cells first :class))
+        result-root (if (and focused? focused-subdir?)
+                      (str result-root "focused/")
+                      result-root)]
     (check nil)
     (phase3-bench-jar nil)
     (phase3-trial!)
@@ -679,21 +699,35 @@
        :manifest-file manifest-file
        :manifest manifest
        :jar-path phase3-bench-jar-path
-       :result-prefix (if focused?
-                       "results/phase-3/focused/bench/"
-                       "results/phase-3/bench/")
-       :environment-prefix (if focused?
-                             "results/phase-3/focused/environment-"
-                             "results/phase-3/environment-")
+       :result-prefix (str result-root "bench/")
+       :environment-prefix (str result-root "environment-")
        :temporary-prefix (if focused?
-                          "xfseq-phase3-focused-"
-                          "xfseq-phase3-")
+                          (str temporary-prefix "focused-")
+                          temporary-prefix)
        :command-fn phase3-jmh-command
        :cell-output-fn phase3-cell-output
        :environment-command
        (fn [environment profile run-id result jar-path commands]
          ["environment" "phase3" environment (name profile) (or run-id "")
-          result jar-path (pr-str commands)])})))
+         result jar-path (pr-str commands)])})))
+
+(def phase3-speed-map-manifest-file
+  "bench/manifests/phase3-speed-map-screen.edn")
+
+(defn phase3-bench-speed-map-screen
+  "Run the fixed direct-on map speed-lab sentinel/holdout screen.
+
+  The speed-lab profile and result namespace are distinct from the historical
+  Phase 3 screen lane.  The checked-in manifest is intentionally fixed; only
+  the optional run ID may select a fresh non-overwriting receipt."
+  [{:keys [run-id]}]
+  (phase3-bench-profile*
+    :speed-lab-screen
+    {:run-id run-id}
+    phase3-speed-map-manifest-file
+    "results/phase-3/speed-lab/"
+    "xfseq-phase3-speed-lab-"
+    false))
 
 (defn phase3-bench-screen
   "Run the explicit Phase 3 direct-unary screen matrix."

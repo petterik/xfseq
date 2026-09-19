@@ -154,6 +154,86 @@
     (is (some #(= "java-mixed-object-nonreducing-v2" %)
               registry/phase3-focused-implementations))))
 
+(deftest phase3-speed-map-manifest-is-fixed-and-exact
+  (let [manifest (registry/read-manifest
+                   "bench/manifests/phase3-speed-map-screen.edn")
+        cells (:cells manifest)
+        expected-dimensions
+        {"speed-map-first-list-8-identity"
+         ["first" "list" "8" "identity" "0"]
+         "speed-map-first-vector-32-identity"
+         ["first" "vector" "32" "identity" "0"]
+         "speed-map-prefix8-list-1000-identity"
+         ["prefix8" "list" "1000" "identity" "0"]
+         "speed-map-prefix8-vector-32-identity"
+         ["prefix8" "vector" "32" "identity" "0"]
+         "speed-map-traverse-list-1000-identity"
+         ["traverse" "list" "1000" "identity" "0"]
+         "speed-map-traverse-vector-1000-identity"
+         ["traverse" "vector" "1000" "identity" "0"]
+         "speed-map-reduce-unretained-list-1000-identity"
+         ["reduceUnretained" "list" "1000" "identity" "0"]
+         "speed-map-reduce-unretained-vector-1000-identity"
+         ["reduceUnretained" "vector" "1000" "identity" "0"]
+         "speed-map-reduce-retained-list-1000-identity"
+         ["reduceRetained" "list" "1000" "identity" "0"]
+         "speed-map-reduce-retained-vector-1000-identity"
+         ["reduceRetained" "vector" "1000" "identity" "0"]
+         "speed-map-traverse-list-1000-arithmetic"
+         ["traverse" "list" "1000" "arithmetic" "0"]
+         "speed-map-traverse-vector-1000-arithmetic"
+         ["traverse" "vector" "1000" "arithmetic" "0"]
+         "speed-map-prefix8-subvector-33-identity"
+         ["prefix8" "subvector" "33" "identity" "0"]
+         "speed-map-traverse-lazy-list-1000-identity"
+         ["traverse" "lazy-list" "1000" "identity" "0"]
+         "speed-map-traverse-vector-33-arithmetic"
+         ["traverse" "vector" "33" "arithmetic" "0"]
+         "speed-map-reduce-unretained-array-1000-identity"
+         ["reduceUnretained" "array" "1000" "identity" "0"]}
+        expected-ids (set (keys expected-dimensions))
+        actual-dimensions
+        (into {}
+              (map (fn [{:keys [id method params]}]
+                     [id [method (get-in params ["sourceKind" 0])
+                           (get-in params ["size" 0])
+                           (get-in params ["workload" 0])
+                           (get-in params ["takeCount" 0])]]))
+              cells)
+        holdout-ids ["speed-map-prefix8-subvector-33-identity"
+                     "speed-map-traverse-lazy-list-1000-identity"
+                     "speed-map-traverse-vector-33-arithmetic"
+                     "speed-map-reduce-unretained-array-1000-identity"]]
+    (is (= :phase3 (:phase manifest)))
+    (is (= :screen (:profile manifest)))
+    (is (= 16 (count cells)))
+    (is (= expected-ids (set (map :id cells))))
+    (is (= 32 (count (registry/manifest-identities manifest))))
+    (is (every? #(= "xfseq.bench.Phase3FocusedBenchmark" (:class %))
+                cells))
+    (is (every? #(= #{"implementation" "operation" "sourceKind" "size"
+                     "workload" "takeCount"}
+                    (set (keys (:params %))))
+                cells))
+    (is (every? #(= ["core-direct" "candidate-direct"]
+                    (get-in % [:params "implementation"]))
+                cells))
+    (is (every? #(= ["map"] (get-in % [:params "operation"])) cells))
+    ;; Assert every method/source/size/workload/take-count identity, so the
+    ;; fixed holdouts cannot be silently renamed while keeping their IDs.
+    (is (= expected-dimensions actual-dimensions))
+    (is (= (select-keys expected-dimensions holdout-ids)
+           (select-keys actual-dimensions holdout-ids)))))
+
+(deftest speed-lab-screen-profile-is-fixed-and-manifest-compatible
+  (let [profile (:speed-lab-screen registry/profiles)]
+    (is (= 2 (:forks profile)))
+    (is (= 3 (:warmups profile)))
+    (is (= 3 (:measurements profile)))
+    (is (= ["-Xms2g" "-Xmx2g" "-XX:+UseG1GC"]
+           (:jvm-opts profile)))
+    (is (= :speed-lab-reversal-screen (:purpose profile)))))
+
 (deftest phase3-focused-manifest-rejects-inapplicable-cells
   (let [manifest-file (temporary-path ".phase3-focused.edn")
         base {"implementation" ["java-dechunked-object-reduced-aware-v2"]
@@ -343,6 +423,8 @@
   (let [manifest-file (temporary-path ".edn")
         result-file (temporary-path ".json")
         gc-result-file (temporary-path ".gc.json")
+        speed-manifest-file (temporary-path ".speed.edn")
+        speed-result-file (temporary-path ".speed.json")
         two-manifest-file (temporary-path ".two.edn")
         duplicate-file (temporary-path ".duplicate.json")
         short-file (temporary-path ".short.json")
@@ -375,6 +457,17 @@
                                       :scoreError 0.1}})])
       (is (map? (registry/validate-manifest!
                   gc-result-file manifest-file :decision-gc)))
+
+      ;; The speed-lab execution profile uses the ordinary screen manifest
+      ;; shape while keeping its fixed JVM lane and result namespace separate.
+      (registry/write-edn-new!
+        speed-manifest-file
+        (test-manifest :screen ["xfseq"]))
+      (registry/write-json-new!
+        speed-result-file
+        [(test-row "xfseq")])
+      (is (map? (registry/validate-manifest!
+                  speed-result-file speed-manifest-file :speed-lab-screen)))
 
       ;; Two expanded identities make the duplicate and row-count failures
       ;; independently observable before a durable merge target is reserved.
@@ -419,6 +512,7 @@
         (is (not (.exists ^java.io.File (io/file short-target)))))
       (finally
         (doseq [file [manifest-file two-manifest-file result-file gc-result-file
+                      speed-manifest-file speed-result-file
                       duplicate-file short-file
                       duplicate-target short-target]]
           (.delete ^java.io.File (io/file file)))))))

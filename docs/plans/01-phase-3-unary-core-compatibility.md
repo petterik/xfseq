@@ -1,6 +1,6 @@
 # Implementation #1, Phase 3: unary core-function compatibility
 
-Status: Ready for implementation — unary speed lab
+Status: In progress — unary speed lab
 
 Parent design: [`docs/01-transducer-backed-lazy-seqs.md`](../01-transducer-backed-lazy-seqs.md)
 
@@ -2035,6 +2035,31 @@ Verdict: `ready for implementation`.
 | Date | Stage | Agent | Work | Result |
 |---|---|---|---|---|
 | 2026-09-01 | User-directed replan | `/root` | Reconstructed the changed goal, preserved the completed Phase 3 evidence, designed sequential parent-timed experiments, reviewed the plan twice, and applied the strict pre-implementation gate. | Ready for implementation after the planning checkpoint commit; no production or benchmark code changed. |
+
+### Speed Slice 0 run log
+
+| Date/time | Stage | Agent | Work | Result |
+|---|---|---|---|---|
+| 2026-09-19 10:25 CEST | Harness implementation | `/root/speed_slice0` | Added the fixed map sentinel/holdout manifest at `bench/manifests/phase3-speed-map-screen.edn` with the existing focused Phase 3 harness: 16 explicit cells and only direct core/public candidate implementations, yielding 32 exact identities. Added the distinct `:speed-lab-screen` profile with fixed `-Xms2g -Xmx2g -XX:+UseG1GC`, profile alias validation, and the dedicated `results/phase-3/speed-lab/` build task/path. No production code or old Phase 3 receipt path changed. | Worker timing and performance interpretation were not run. Parent baseline handoff command: `clojure -Srepro -T:build phase3-bench-speed-map-screen '{:run-id "slice0-20260919-map-baseline"}'`. |
+| 2026-09-19 10:25 CEST | Slice 0 validation | `/root/speed_slice0` | Ran the focused registry suite, checked the speed manifest through the registry, ran the Phase 3 AOT/direct-linkage gate, and checked diff whitespace. | Registry: 11 tests / 81 assertions / 0 failures / 0 errors. Manifest: 16 cells / 32 identities / `:screen` declaration. Linkage passed with no Var lookup. `git diff --check` passed. No timing, allocation, or performance verdict was made. |
+
+### Speed Slice 0 parent checkpoint
+
+- Starting HEAD: `aa57a49030b43d6d312f0f100caabe404d46a7a7`; clean worktree,
+  including the user’s committed model-name update.
+- Parent preflight `clojure -Srepro -T:build check '{}'` passed 53 tests /
+  4,605 assertions, lint 0/0, reflection clean. Java remains Homebrew
+  26.0.2.1 and CLI 1.12.5.1664; Darwin is now 25.6.0 arm64. The fresh lab
+  baseline, rather than September 1 timings, anchors experiment comparisons.
+- Parent inspected the complete Slice 0 diff and all 16 exact manifest cells;
+  independently reran registry tests: 11 tests / 81 assertions, no failures
+  or errors. The baseline task independently repeats full check, AOT/linkage,
+  and fresh-fixture trials before timing. Existing decision/GC receipt hashes
+  and row counts (309 / 72 / 74) match the recorded immutable evidence.
+- Performance interpretation uses individual JMH scores, reported confidence
+  intervals and fork samples. Ratios of confidence endpoints are conservative
+  bounds, not a separately estimated ratio confidence interval. Overlapping
+  bounds do not establish equivalence or a supported regression.
 
 ### Speed-lab What matters
 
